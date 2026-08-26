@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "R": { "item": "minecraft:redstone" },
+    "G": { "item": "minecraft:glass_pane" },
+    "P": { "item": "minecraft:piston" },
+    "S": { "item": "minecraft:smooth_stone" }
+  },
+  "pattern": ["III", "RGP", "SSS"],
+  "result": { "id": "printer:printer", "count": 1 },
+  "show_notification": true
+}

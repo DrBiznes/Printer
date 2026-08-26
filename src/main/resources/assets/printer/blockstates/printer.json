@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "facing=north,printing=false": { "model": "printer:block/printer" },
+    "facing=east,printing=false": { "model": "printer:block/printer", "y": 90 },
+    "facing=south,printing=false": { "model": "printer:block/printer", "y": 180 },
+    "facing=west,printing=false": { "model": "printer:block/printer", "y": 270 },
+    "facing=north,printing=true": { "model": "printer:block/printer_printing" },
+    "facing=east,printing=true": { "model": "printer:block/printer_printing", "y": 90 },
+    "facing=south,printing=true": { "model": "printer:block/printer_printing", "y": 180 },
+    "facing=west,printing=true": { "model": "printer:block/printer_printing", "y": 270 }
+  }
+}

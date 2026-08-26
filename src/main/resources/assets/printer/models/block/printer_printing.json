@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "printer:block/printer_bottom",
+    "up": "printer:block/printer_top",
+    "north": "printer:block/printer_front_printing",
+    "south": "printer:block/printer_back",
+    "west": "printer:block/printer_input",
+    "east": "printer:block/printer_output",
+    "particle": "printer:block/printer_front_printing"
+  }
+}
