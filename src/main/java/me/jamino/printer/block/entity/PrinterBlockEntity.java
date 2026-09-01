@@ -2,6 +2,7 @@ package me.jamino.printer.block.entity;
 
 import me.jamino.printer.block.PrinterBlock;
 import me.jamino.printer.data.PrinterPreset;
+import me.jamino.printer.data.PrintFrame;
 import me.jamino.printer.inventory.PrinterMenu;
 import me.jamino.printer.job.PrinterJobService;
 import me.jamino.printer.registry.ModBlockEntities;
@@ -130,13 +131,15 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     }
 
     public boolean hasPrintingSupplies() {
-        return items.get(PAPER_SLOT).is(Items.PAPER)
+        return preset != null && items.get(PAPER_SLOT).is(Items.PAPER)
+                && items.get(PAPER_SLOT).getCount() >= preset.requiredPaper()
                 && (items.get(INK_SLOT).is(Items.INK_SAC) || items.get(INK_SLOT).is(ModItems.COLOR_CARTRIDGE.get()))
                 && items.get(OUTPUT_SLOT).isEmpty();
     }
 
     public void consumeSupplies() {
-        items.get(PAPER_SLOT).shrink(1);
+        if (preset == null) return;
+        items.get(PAPER_SLOT).shrink(preset.requiredPaper());
         ItemStack ink = items.get(INK_SLOT);
         if (ink.is(Items.INK_SAC)) {
             ink.shrink(1);
@@ -170,8 +173,11 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
         if (preset != null) {
             tag.putString("PresetSource", preset.sourceId());
             tag.putString("PresetTitle", preset.title());
-            tag.putInt("PresetWidth", preset.width());
-            tag.putInt("PresetHeight", preset.height());
+            tag.putInt("PresetSourceWidth", preset.sourceWidth());
+            tag.putInt("PresetSourceHeight", preset.sourceHeight());
+            tag.putInt("PresetBlocksWide", preset.blocksWide());
+            tag.putInt("PresetBlocksHigh", preset.blocksHigh());
+            tag.putString("PresetFrame", preset.frame().getSerializedName());
         }
         tag.putBoolean("Powered", powered);
         tag.putString("Status", printing ? "gui.printer.status.interrupted" : statusKey);
@@ -187,7 +193,9 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
         }
         if (tag.contains("PresetSource")) {
             preset = new PrinterPreset(tag.getString("PresetSource"), tag.getString("PresetTitle"),
-                    tag.getInt("PresetWidth"), tag.getInt("PresetHeight"));
+                    tag.getInt("PresetSourceWidth"), tag.getInt("PresetSourceHeight"),
+                    tag.getInt("PresetBlocksWide"), tag.getInt("PresetBlocksHigh"),
+                    PrintFrame.byName(tag.getString("PresetFrame")));
         } else {
             preset = null;
         }
@@ -224,8 +232,11 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     public void removeComponentsFromTag(CompoundTag tag) {
         tag.remove("PresetSource");
         tag.remove("PresetTitle");
-        tag.remove("PresetWidth");
-        tag.remove("PresetHeight");
+        tag.remove("PresetSourceWidth");
+        tag.remove("PresetSourceHeight");
+        tag.remove("PresetBlocksWide");
+        tag.remove("PresetBlocksHigh");
+        tag.remove("PresetFrame");
     }
 
     @Override

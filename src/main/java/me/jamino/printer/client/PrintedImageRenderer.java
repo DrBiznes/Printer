@@ -3,17 +3,38 @@ package me.jamino.printer.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import me.jamino.printer.Printer;
 import me.jamino.printer.data.ImageReference;
+import me.jamino.printer.data.PrintFrame;
 import me.jamino.printer.entity.PrintedImageEntity;
+import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 
+/**
+ * Renders a print as a shallow canvas with an optional material frame. Large
+ * surfaces are split into block-sized quads so each part receives local world
+ * lighting and the image keeps stable UVs at every supported size.
+ */
 public final class PrintedImageRenderer extends EntityRenderer<PrintedImageEntity> {
-    private static final ResourceLocation PLACEHOLDER = me.jamino.printer.Printer.id("textures/item/image.png");
+    private static final ResourceLocation PLACEHOLDER = Printer.id("textures/item/image.png");
+    private static final ResourceLocation CANVAS = ResourceLocation.withDefaultNamespace(
+            "textures/block/white_concrete.png");
+
+    private static final float CANVAS_FRONT = -0.020F;
+    private static final float CANVAS_BACK = 0.0425F;
+    private static final float IMAGE_FRONT = -0.022F;
+    private static final float FRAME_FRONT = -0.0825F;
+    private static final float FRAME_BACK = -0.0175F;
+    private static final float FRAME_WIDTH = 2.0F / 16.0F;
+    private static final float IMAGE_MARGIN = 1.0F / 16.0F;
 
     public PrintedImageRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -23,43 +44,193 @@ public final class PrintedImageRenderer extends EntityRenderer<PrintedImageEntit
     public void render(PrintedImageEntity entity, float yaw, float partialTick, PoseStack poseStack,
                        MultiBufferSource buffers, int packedLight) {
         ImageReference reference = entity.getReference();
-        ResourceLocation texture = ClientImageCache.getOrRequest(reference.contentId());
-        if (texture == null) texture = PLACEHOLDER;
-        float canvasWidth = entity.blocksWide();
-        float canvasHeight = entity.blocksHigh();
-        float imageWidth = canvasWidth;
-        float imageHeight = canvasHeight;
-        float imageAspect = reference.width() / (float) reference.height();
-        float canvasAspect = canvasWidth / canvasHeight;
-        if (imageAspect > canvasAspect) imageHeight = imageWidth / imageAspect;
-        else imageWidth = imageHeight * imageAspect;
+        ResourceLocation imageTexture = ClientImageCache.getOrRequest(reference.contentId());
+        if (imageTexture == null) imageTexture = PLACEHOLDER;
 
         poseStack.pushPose();
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - yaw));
-        // The painting transform presents the negative-Z side. Keep the surface just in
-        // front of the wall and disable culling because this custom quad has no back mesh.
-        VertexConsumer backing = buffers.getBuffer(RenderType.entityCutoutNoCull(PLACEHOLDER));
-        quad(backing, poseStack.last(), -canvasWidth / 2, -canvasHeight / 2, canvasWidth / 2, canvasHeight / 2,
-                -0.032F, packedLight, 0, 0, 1, 1);
-        VertexConsumer image = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
-        quad(image, poseStack.last(), -imageWidth / 2, -imageHeight / 2, imageWidth / 2, imageHeight / 2,
-                -0.035F, packedLight, 0, 1, 1, 0);
+        renderCanvas(entity, poseStack.last(), buffers);
+        renderImage(entity, reference, imageTexture, poseStack.last(), buffers);
+        if (reference.frame().isPresent()) {
+            renderFrame(entity, reference.frame(), poseStack.last(), buffers);
+        }
         poseStack.popPose();
         super.render(entity, yaw, partialTick, poseStack, buffers, packedLight);
     }
 
-    private static void quad(VertexConsumer consumer, PoseStack.Pose pose, float x0, float y0, float x1, float y1,
-                             float z, int light, float u0, float v0, float u1, float v1) {
-        vertex(consumer, pose, x0, y0, z, u0, v0, light);
-        vertex(consumer, pose, x1, y0, z, u1, v0, light);
-        vertex(consumer, pose, x1, y1, z, u1, v1, light);
-        vertex(consumer, pose, x0, y1, z, u0, v1, light);
+    private static void renderCanvas(PrintedImageEntity entity, PoseStack.Pose pose, MultiBufferSource buffers) {
+        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(CANVAS));
+        int width = entity.blocksWide();
+        int height = entity.blocksHigh();
+        float left = -width / 2.0F;
+        float bottom = -height / 2.0F;
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                float x0 = left + x;
+                float y0 = bottom + y;
+                int light = lightAt(entity, x, y);
+                frontQuad(consumer, pose, x0, y0, x0 + 1.0F, y0 + 1.0F, CANVAS_FRONT,
+                        0.0F, 1.0F, 1.0F, 0.0F, light, 0.0F, 0.0F, -1.0F);
+                frontQuad(consumer, pose, x0, y0, x0 + 1.0F, y0 + 1.0F, CANVAS_BACK,
+                        0.0F, 1.0F, 1.0F, 0.0F, light, 0.0F, 0.0F, 1.0F);
+            }
+        }
+
+        for (int x = 0; x < width; x++) {
+            float x0 = left + x;
+            int bottomLight = lightAt(entity, x, 0);
+            int topLight = lightAt(entity, x, height - 1);
+            horizontalDepthQuad(consumer, pose, x0, x0 + 1.0F, bottom, CANVAS_FRONT, CANVAS_BACK,
+                    bottomLight, 0.0F, -1.0F);
+            horizontalDepthQuad(consumer, pose, x0, x0 + 1.0F, bottom + height, CANVAS_BACK, CANVAS_FRONT,
+                    topLight, 0.0F, 1.0F);
+        }
+        for (int y = 0; y < height; y++) {
+            float y0 = bottom + y;
+            int leftLight = lightAt(entity, 0, y);
+            int rightLight = lightAt(entity, width - 1, y);
+            verticalDepthQuad(consumer, pose, left, y0, y0 + 1.0F, CANVAS_BACK, CANVAS_FRONT,
+                    leftLight, -1.0F, 0.0F);
+            verticalDepthQuad(consumer, pose, left + width, y0, y0 + 1.0F, CANVAS_FRONT, CANVAS_BACK,
+                    rightLight, 1.0F, 0.0F);
+        }
+    }
+
+    private static void renderImage(PrintedImageEntity entity, ImageReference reference, ResourceLocation texture,
+                                    PoseStack.Pose pose, MultiBufferSource buffers) {
+        int width = entity.blocksWide();
+        int height = entity.blocksHigh();
+        float left = -width / 2.0F;
+        float bottom = -height / 2.0F;
+        float margin = reference.frame().isPresent() ? IMAGE_MARGIN : 0.0F;
+        float availableWidth = width - margin * 2.0F;
+        float availableHeight = height - margin * 2.0F;
+        float imageWidth = availableWidth;
+        float imageHeight = availableHeight;
+        float imageAspect = reference.pixelWidth() / (float) reference.pixelHeight();
+        float availableAspect = availableWidth / availableHeight;
+        if (imageAspect > availableAspect) imageHeight = imageWidth / imageAspect;
+        else imageWidth = imageHeight * imageAspect;
+
+        float imageLeft = -imageWidth / 2.0F;
+        float imageBottom = -imageHeight / 2.0F;
+        float imageTop = imageHeight / 2.0F;
+        VertexConsumer consumer = buffers.getBuffer(PrinterRenderTypes.smoothImage(texture));
+
+        for (int y = 0; y < height; y++) {
+            float cellBottom = bottom + y;
+            float y0 = Math.max(cellBottom, imageBottom);
+            float y1 = Math.min(cellBottom + 1.0F, imageTop);
+            if (y0 >= y1) continue;
+            for (int x = 0; x < width; x++) {
+                float cellLeft = left + x;
+                float x0 = Math.max(cellLeft, imageLeft);
+                float x1 = Math.min(cellLeft + 1.0F, imageLeft + imageWidth);
+                if (x0 >= x1) continue;
+                float u0 = (x0 - imageLeft) / imageWidth;
+                float u1 = (x1 - imageLeft) / imageWidth;
+                float v0 = 1.0F - (y0 - imageBottom) / imageHeight;
+                float v1 = 1.0F - (y1 - imageBottom) / imageHeight;
+                frontQuad(consumer, pose, x0, y0, x1, y1, IMAGE_FRONT,
+                        u0, v0, u1, v1, lightAt(entity, x, y), 0.0F, 0.0F, -1.0F);
+            }
+        }
+    }
+
+    private static void renderFrame(PrintedImageEntity entity, PrintFrame frame, PoseStack.Pose pose,
+                                    MultiBufferSource buffers) {
+        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(frame.texture()));
+        int width = entity.blocksWide();
+        int height = entity.blocksHigh();
+        float left = -width / 2.0F;
+        float right = width / 2.0F;
+        float bottom = -height / 2.0F;
+        float top = height / 2.0F;
+
+        for (int x = 0; x < width; x++) {
+            float x0 = left + x;
+            int bottomLight = lightAt(entity, x, 0);
+            int topLight = lightAt(entity, x, height - 1);
+            frontQuad(consumer, pose, x0, bottom, x0 + 1.0F, bottom + FRAME_WIDTH, FRAME_FRONT,
+                    0.0F, 1.0F, 1.0F, 1.0F - FRAME_WIDTH, bottomLight, 0.0F, 0.0F, -1.0F);
+            frontQuad(consumer, pose, x0, top - FRAME_WIDTH, x0 + 1.0F, top, FRAME_FRONT,
+                    0.0F, FRAME_WIDTH, 1.0F, 0.0F, topLight, 0.0F, 0.0F, -1.0F);
+            horizontalDepthQuad(consumer, pose, x0, x0 + 1.0F, bottom, FRAME_FRONT, FRAME_BACK,
+                    bottomLight, 0.0F, -1.0F);
+            horizontalDepthQuad(consumer, pose, x0, x0 + 1.0F, bottom + FRAME_WIDTH, FRAME_BACK, FRAME_FRONT,
+                    bottomLight, 0.0F, 1.0F);
+            horizontalDepthQuad(consumer, pose, x0, x0 + 1.0F, top - FRAME_WIDTH, FRAME_FRONT, FRAME_BACK,
+                    topLight, 0.0F, -1.0F);
+            horizontalDepthQuad(consumer, pose, x0, x0 + 1.0F, top, FRAME_BACK, FRAME_FRONT,
+                    topLight, 0.0F, 1.0F);
+        }
+
+        for (int y = 0; y < height; y++) {
+            float y0 = bottom + y;
+            int leftLight = lightAt(entity, 0, y);
+            int rightLight = lightAt(entity, width - 1, y);
+            frontQuad(consumer, pose, left, y0, left + FRAME_WIDTH, y0 + 1.0F, FRAME_FRONT,
+                    0.0F, 1.0F, FRAME_WIDTH, 0.0F, leftLight, 0.0F, 0.0F, -1.0F);
+            frontQuad(consumer, pose, right - FRAME_WIDTH, y0, right, y0 + 1.0F, FRAME_FRONT,
+                    1.0F - FRAME_WIDTH, 1.0F, 1.0F, 0.0F, rightLight, 0.0F, 0.0F, -1.0F);
+            verticalDepthQuad(consumer, pose, left, y0, y0 + 1.0F, FRAME_BACK, FRAME_FRONT,
+                    leftLight, -1.0F, 0.0F);
+            verticalDepthQuad(consumer, pose, left + FRAME_WIDTH, y0, y0 + 1.0F, FRAME_FRONT, FRAME_BACK,
+                    leftLight, 1.0F, 0.0F);
+            verticalDepthQuad(consumer, pose, right - FRAME_WIDTH, y0, y0 + 1.0F, FRAME_BACK, FRAME_FRONT,
+                    rightLight, -1.0F, 0.0F);
+            verticalDepthQuad(consumer, pose, right, y0, y0 + 1.0F, FRAME_FRONT, FRAME_BACK,
+                    rightLight, 1.0F, 0.0F);
+        }
+    }
+
+    private static int lightAt(PrintedImageEntity entity, int tileX, int tileY) {
+        int width = entity.blocksWide();
+        int height = entity.blocksHigh();
+        double localX = tileX + 0.5D - width / 2.0D;
+        double localY = tileY + 0.5D - height / 2.0D;
+        Direction facing = entity.getDirection();
+        Direction right = facing.getCounterClockWise();
+        Vec3 sample = entity.getBoundingBox().getCenter()
+                .add(right.getStepX() * localX, localY, right.getStepZ() * localX)
+                .relative(facing.getOpposite(), 0.5D);
+        return LevelRenderer.getLightColor(entity.level(), BlockPos.containing(sample));
+    }
+
+    private static void frontQuad(VertexConsumer consumer, PoseStack.Pose pose,
+                                  float x0, float y0, float x1, float y1, float z,
+                                  float u0, float v0, float u1, float v1, int light,
+                                  float normalX, float normalY, float normalZ) {
+        vertex(consumer, pose, x0, y0, z, u0, v0, light, normalX, normalY, normalZ);
+        vertex(consumer, pose, x1, y0, z, u1, v0, light, normalX, normalY, normalZ);
+        vertex(consumer, pose, x1, y1, z, u1, v1, light, normalX, normalY, normalZ);
+        vertex(consumer, pose, x0, y1, z, u0, v1, light, normalX, normalY, normalZ);
+    }
+
+    private static void verticalDepthQuad(VertexConsumer consumer, PoseStack.Pose pose, float x,
+                                          float y0, float y1, float z0, float z1, int light,
+                                          float normalX, float normalY) {
+        vertex(consumer, pose, x, y0, z0, 0.0F, 1.0F, light, normalX, normalY, 0.0F);
+        vertex(consumer, pose, x, y0, z1, 1.0F, 1.0F, light, normalX, normalY, 0.0F);
+        vertex(consumer, pose, x, y1, z1, 1.0F, 0.0F, light, normalX, normalY, 0.0F);
+        vertex(consumer, pose, x, y1, z0, 0.0F, 0.0F, light, normalX, normalY, 0.0F);
+    }
+
+    private static void horizontalDepthQuad(VertexConsumer consumer, PoseStack.Pose pose,
+                                            float x0, float x1, float y, float z0, float z1, int light,
+                                            float normalX, float normalY) {
+        vertex(consumer, pose, x0, y, z0, 0.0F, 1.0F, light, normalX, normalY, 0.0F);
+        vertex(consumer, pose, x1, y, z0, 1.0F, 1.0F, light, normalX, normalY, 0.0F);
+        vertex(consumer, pose, x1, y, z1, 1.0F, 0.0F, light, normalX, normalY, 0.0F);
+        vertex(consumer, pose, x0, y, z1, 0.0F, 0.0F, light, normalX, normalY, 0.0F);
     }
 
     private static void vertex(VertexConsumer consumer, PoseStack.Pose pose, float x, float y, float z,
-                               float u, float v, int light) {
+                               float u, float v, int light, float normalX, float normalY, float normalZ) {
         consumer.addVertex(pose, x, y, z).setColor(-1).setUv(u, v)
-                .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, 0, 0, -1);
+                .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
+                .setNormal(pose, normalX, normalY, normalZ);
     }
 
     @Override

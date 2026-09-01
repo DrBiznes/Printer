@@ -55,10 +55,14 @@ public class ImageItem extends Item {
         if (!reference.title().isBlank()) {
             tooltip.add(Component.literal(reference.title()).withStyle(ChatFormatting.GOLD));
         }
-        tooltip.add(Component.translatable("item.printer.image.dimensions", reference.width(), reference.height())
+        tooltip.add(Component.translatable("item.printer.image.dimensions", reference.pixelWidth(), reference.pixelHeight())
                 .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("item.printer.image.footprint", reference.blocksWide(), reference.blocksHigh())
-                .withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatable("item.printer.image.blocks", reference.blocksWide(), reference.blocksHigh())
+                .withStyle(ChatFormatting.GRAY));
+        if (reference.frame().isPresent()) {
+            tooltip.add(Component.translatable("item.printer.image.frame", Component.translatable(
+                    "gui.printer.frame." + reference.frame().getSerializedName())).withStyle(ChatFormatting.DARK_GRAY));
+        }
         tooltip.add(Component.translatable("item.printer.image.mode." + reference.mode().getSerializedName())
                 .withStyle(ChatFormatting.DARK_GRAY));
     }

@@ -23,13 +23,26 @@ public final class ModNetworking {
     private ModNetworking() {}
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1");
+        PayloadRegistrar registrar = event.registrar("3");
         registrar.playToServer(LoadImagePayload.TYPE, LoadImagePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
                             && menu.getPos().equals(payload.pos()) && player.level() instanceof ServerLevel level) {
-                        PrinterJobService.requestLoad(level, payload.pos(), player, payload.url(), payload.title(),
-                                payload.width(), payload.height());
+                        PrinterJobService.requestLoad(level, payload.pos(), player, payload.url(), payload.title());
+                    }
+                }));
+        registrar.playToServer(ResizePresetPayload.TYPE, ResizePresetPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
+                            && menu.getPos().equals(payload.pos()) && player.level() instanceof ServerLevel level) {
+                        PrinterJobService.requestResize(level, payload.pos(), payload.change());
+                    }
+                }));
+        registrar.playToServer(CycleFramePayload.TYPE, CycleFramePayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
+                            && menu.getPos().equals(payload.pos()) && player.level() instanceof ServerLevel level) {
+                        PrinterJobService.requestFrame(level, payload.pos(), payload.change());
                     }
                 }));
         registrar.playToServer(PrintPayload.TYPE, PrintPayload.STREAM_CODEC, (payload, context) ->
@@ -53,8 +66,16 @@ public final class ModNetworking {
                 (payload, context) -> context.enqueueWork(() -> CLIENT_IMAGE_CHUNK_HANDLER.accept(payload)));
     }
 
-    public static void sendLoad(BlockPos pos, String url, String title, int width, int height) {
-        PacketDistributor.sendToServer(new LoadImagePayload(pos, url, title, width, height));
+    public static void sendLoad(BlockPos pos, String url, String title) {
+        PacketDistributor.sendToServer(new LoadImagePayload(pos, url, title));
+    }
+
+    public static void sendResize(BlockPos pos, int change) {
+        PacketDistributor.sendToServer(new ResizePresetPayload(pos, change));
+    }
+
+    public static void sendCycleFrame(BlockPos pos, int change) {
+        PacketDistributor.sendToServer(new CycleFramePayload(pos, change));
     }
 
     public static void sendPrint(BlockPos pos) {
@@ -74,16 +95,32 @@ public final class ModNetworking {
         }
     }
 
-    public record LoadImagePayload(BlockPos pos, String url, String title, int width, int height)
+    public record LoadImagePayload(BlockPos pos, String url, String title)
             implements CustomPacketPayload {
         public static final Type<LoadImagePayload> TYPE = new Type<>(Printer.id("load_image"));
         public static final StreamCodec<FriendlyByteBuf, LoadImagePayload> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, LoadImagePayload::pos,
                 ByteBufCodecs.stringUtf8(2048), LoadImagePayload::url,
                 ByteBufCodecs.stringUtf8(64), LoadImagePayload::title,
-                ByteBufCodecs.VAR_INT, LoadImagePayload::width,
-                ByteBufCodecs.VAR_INT, LoadImagePayload::height,
                 LoadImagePayload::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record ResizePresetPayload(BlockPos pos, int change) implements CustomPacketPayload {
+        public static final Type<ResizePresetPayload> TYPE = new Type<>(Printer.id("resize_preset"));
+        public static final StreamCodec<FriendlyByteBuf, ResizePresetPayload> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, ResizePresetPayload::pos,
+                ByteBufCodecs.VAR_INT, ResizePresetPayload::change,
+                ResizePresetPayload::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record CycleFramePayload(BlockPos pos, int change) implements CustomPacketPayload {
+        public static final Type<CycleFramePayload> TYPE = new Type<>(Printer.id("cycle_frame"));
+        public static final StreamCodec<FriendlyByteBuf, CycleFramePayload> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, CycleFramePayload::pos,
+                ByteBufCodecs.VAR_INT, CycleFramePayload::change,
+                CycleFramePayload::new);
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 

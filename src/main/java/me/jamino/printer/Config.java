@@ -18,6 +18,8 @@ public final class Config {
     public static final class Server {
         public final ModConfigSpec.IntValue maxImageWidth;
         public final ModConfigSpec.IntValue maxImageHeight;
+        public final ModConfigSpec.IntValue autoSizeMaxBlocks;
+        public final ModConfigSpec.IntValue maxPlacementBlocks;
         public final ModConfigSpec.IntValue maxDownloadMiB;
         public final ModConfigSpec.IntValue maxStoredMiB;
         public final ModConfigSpec.IntValue fetchTimeoutSeconds;
@@ -28,6 +30,10 @@ public final class Config {
             builder.push("images");
             maxImageWidth = builder.defineInRange("maxWidth", 1024, 1, 4096);
             maxImageHeight = builder.defineInRange("maxHeight", 1024, 1, 4096);
+            autoSizeMaxBlocks = builder.comment("Maximum long edge selected automatically after loading an image.")
+                    .defineInRange("autoSizeMaxBlocks", 4, 1, 8);
+            maxPlacementBlocks = builder.comment("Maximum long edge selectable with the printer size controls.")
+                    .defineInRange("maxPlacementBlocks", 8, 1, 8);
             maxDownloadMiB = builder.defineInRange("maxDownloadMiB", 10, 1, 64);
             maxStoredMiB = builder.defineInRange("maxStoredMiB", 256, 16, 4096);
             fetchTimeoutSeconds = builder.defineInRange("fetchTimeoutSeconds", 30, 5, 120);

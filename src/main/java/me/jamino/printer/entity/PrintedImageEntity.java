@@ -1,6 +1,7 @@
 package me.jamino.printer.entity;
 
 import me.jamino.printer.data.ImageReference;
+import me.jamino.printer.data.PrintFrame;
 import me.jamino.printer.data.PrintMode;
 import me.jamino.printer.registry.ModDataComponents;
 import me.jamino.printer.registry.ModItems;
@@ -35,8 +36,14 @@ public final class PrintedImageEntity extends HangingEntity {
             PrintedImageEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> PIXEL_HEIGHT = SynchedEntityData.defineId(
             PrintedImageEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> BLOCKS_WIDE = SynchedEntityData.defineId(
+            PrintedImageEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> BLOCKS_HIGH = SynchedEntityData.defineId(
+            PrintedImageEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> MONOCHROME = SynchedEntityData.defineId(
             PrintedImageEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<String> FRAME = SynchedEntityData.defineId(
+            PrintedImageEntity.class, EntityDataSerializers.STRING);
 
     public PrintedImageEntity(EntityType<? extends PrintedImageEntity> type, Level level) {
         super(type, level);
@@ -55,28 +62,36 @@ public final class PrintedImageEntity extends HangingEntity {
         builder.define(TITLE, "");
         builder.define(PIXEL_WIDTH, 128);
         builder.define(PIXEL_HEIGHT, 128);
+        builder.define(BLOCKS_WIDE, 1);
+        builder.define(BLOCKS_HIGH, 1);
         builder.define(MONOCHROME, false);
+        builder.define(FRAME, PrintFrame.NONE.getSerializedName());
     }
 
     @Override
     public void onSyncedDataUpdated(EntityDataAccessor<?> accessor) {
-        if (accessor.equals(PIXEL_WIDTH) || accessor.equals(PIXEL_HEIGHT)) recalculateBoundingBox();
+        if (accessor.equals(BLOCKS_WIDE) || accessor.equals(BLOCKS_HIGH)) recalculateBoundingBox();
         super.onSyncedDataUpdated(accessor);
     }
 
     public void setReference(ImageReference reference) {
         entityData.set(CONTENT_ID, reference.contentId());
         entityData.set(TITLE, reference.title());
-        entityData.set(PIXEL_WIDTH, reference.width());
-        entityData.set(PIXEL_HEIGHT, reference.height());
+        entityData.set(PIXEL_WIDTH, reference.pixelWidth());
+        entityData.set(PIXEL_HEIGHT, reference.pixelHeight());
+        entityData.set(BLOCKS_WIDE, reference.blocksWide());
+        entityData.set(BLOCKS_HIGH, reference.blocksHigh());
         entityData.set(MONOCHROME, reference.mode() == PrintMode.MONOCHROME);
+        entityData.set(FRAME, reference.frame().getSerializedName());
         recalculateBoundingBox();
     }
 
     public ImageReference getReference() {
         return new ImageReference(entityData.get(CONTENT_ID), entityData.get(PIXEL_WIDTH),
-                entityData.get(PIXEL_HEIGHT), entityData.get(TITLE),
-                entityData.get(MONOCHROME) ? PrintMode.MONOCHROME : PrintMode.COLOR);
+                entityData.get(PIXEL_HEIGHT), entityData.get(BLOCKS_WIDE), entityData.get(BLOCKS_HIGH),
+                entityData.get(TITLE),
+                entityData.get(MONOCHROME) ? PrintMode.MONOCHROME : PrintMode.COLOR,
+                PrintFrame.byName(entityData.get(FRAME)));
     }
 
     public int blocksWide() { return getReference().blocksWide(); }
@@ -101,18 +116,23 @@ public final class PrintedImageEntity extends HangingEntity {
         ImageReference reference = getReference();
         tag.putString("ContentId", reference.contentId());
         tag.putString("Title", reference.title());
-        tag.putInt("PixelWidth", reference.width());
-        tag.putInt("PixelHeight", reference.height());
+        tag.putInt("PixelWidth", reference.pixelWidth());
+        tag.putInt("PixelHeight", reference.pixelHeight());
+        tag.putInt("BlocksWide", reference.blocksWide());
+        tag.putInt("BlocksHigh", reference.blocksHigh());
         tag.putBoolean("Monochrome", reference.mode() == PrintMode.MONOCHROME);
+        tag.putString("Frame", reference.frame().getSerializedName());
         tag.putByte("Facing", (byte) direction.get2DDataValue());
         super.addAdditionalSaveData(tag);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
-        setReference(new ImageReference(tag.getString("ContentId"), Math.max(1, tag.getInt("PixelWidth")),
-                Math.max(1, tag.getInt("PixelHeight")), tag.getString("Title"),
-                tag.getBoolean("Monochrome") ? PrintMode.MONOCHROME : PrintMode.COLOR));
+        setReference(new ImageReference(tag.getString("ContentId"), tag.getInt("PixelWidth"),
+                tag.getInt("PixelHeight"), tag.getInt("BlocksWide"), tag.getInt("BlocksHigh"),
+                tag.getString("Title"),
+                tag.getBoolean("Monochrome") ? PrintMode.MONOCHROME : PrintMode.COLOR,
+                PrintFrame.byName(tag.getString("Frame"))));
         direction = Direction.from2DDataValue(tag.getByte("Facing"));
         super.readAdditionalSaveData(tag);
         setDirection(direction);
