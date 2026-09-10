@@ -41,55 +41,46 @@ public final class ImageItemRenderer extends BlockEntityWithoutLevelRenderer {
 
         poseStack.pushPose();
         poseStack.translate(0.0F, 0.0F, 0.5F);
-        // GUI buffers use the entity format; held/fixed auxiliary layers keep the
-        // flat text format used by vanilla maps. The image itself uses our smooth type.
-        boolean inventory = context == ItemDisplayContext.GUI;
         PoseStack.Pose pose = poseStack.last();
         boolean framed = reference != null && reference.frame().isPresent();
         float border = framed ? Math.min(1.0F / 16.0F, Math.min(width, height) * 0.2F) : 0.0F;
         if (framed) {
             drawQuad(buffers, CANVAS, pose, x0, y0, x1, y1, 0.0F,
-                    packedLight, packedOverlay, inventory);
+                    packedLight, packedOverlay);
             drawQuad(buffers, reference.frame().texture(), pose, x0, y0, x1, y0 + border, 0.003F,
-                    packedLight, packedOverlay, inventory);
+                    packedLight, packedOverlay);
             drawQuad(buffers, reference.frame().texture(), pose, x0, y1 - border, x1, y1, 0.003F,
-                    packedLight, packedOverlay, inventory);
+                    packedLight, packedOverlay);
             drawQuad(buffers, reference.frame().texture(), pose, x0, y0, x0 + border, y1, 0.003F,
-                    packedLight, packedOverlay, inventory);
+                    packedLight, packedOverlay);
             drawQuad(buffers, reference.frame().texture(), pose, x1 - border, y0, x1, y1, 0.003F,
-                    packedLight, packedOverlay, inventory);
+                    packedLight, packedOverlay);
         }
         VertexConsumer image = buffers.getBuffer(PrinterRenderTypes.smoothImage(texture));
         quad(image, pose, x0 + border, y0 + border, x1 - border, y1 - border, 0.001F,
-                packedLight, packedOverlay, true);
+                packedLight, packedOverlay);
         poseStack.popPose();
     }
 
     private static void drawQuad(MultiBufferSource buffers, ResourceLocation texture, PoseStack.Pose pose,
                                  float x0, float y0, float x1, float y1, float z,
-                                 int light, int overlay, boolean entityFormat) {
-        VertexConsumer consumer = buffers.getBuffer(entityFormat
-                ? RenderType.entityCutoutNoCull(texture)
-                : RenderType.text(texture));
-        quad(consumer, pose, x0, y0, x1, y1, z, light, overlay, entityFormat);
+                                 int light, int overlay) {
+        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
+        quad(consumer, pose, x0, y0, x1, y1, z, light, overlay);
     }
 
     private static void quad(VertexConsumer consumer, PoseStack.Pose pose,
                              float x0, float y0, float x1, float y1, float z,
-                             int light, int overlay, boolean entityFormat) {
-        vertex(consumer, pose, x0, y0, z, 0, 1, light, overlay, entityFormat);
-        vertex(consumer, pose, x1, y0, z, 1, 1, light, overlay, entityFormat);
-        vertex(consumer, pose, x1, y1, z, 1, 0, light, overlay, entityFormat);
-        vertex(consumer, pose, x0, y1, z, 0, 0, light, overlay, entityFormat);
+                             int light, int overlay) {
+        vertex(consumer, pose, x0, y0, z, 0, 1, light, overlay);
+        vertex(consumer, pose, x1, y0, z, 1, 1, light, overlay);
+        vertex(consumer, pose, x1, y1, z, 1, 0, light, overlay);
+        vertex(consumer, pose, x0, y1, z, 0, 0, light, overlay);
     }
 
     private static void vertex(VertexConsumer consumer, PoseStack.Pose pose, float x, float y, float z,
-                               float u, float v, int light, int overlay, boolean entityFormat) {
-        var vertex = consumer.addVertex(pose.pose(), x, y, z).setColor(-1).setUv(u, v);
-        if (entityFormat) {
-            vertex.setOverlay(overlay).setLight(light).setNormal(pose, 0, 0, 1);
-        } else {
-            vertex.setLight(light);
-        }
+                               float u, float v, int light, int overlay) {
+        consumer.addVertex(pose, x, y, z).setColor(-1).setUv(u, v)
+                .setOverlay(overlay).setLight(light).setNormal(pose, 0, 0, 1);
     }
 }

@@ -6,6 +6,7 @@ import me.jamino.printer.data.PrintMode;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -29,6 +30,11 @@ import java.util.Set;
 
 public final class ImageProcessor {
     private static final Set<Integer> REDIRECTS = Set.of(301, 302, 303, 307, 308);
+    private static final Set<String> FORMATS = Set.of("png", "jpeg", "jpg", "gif", "webp", "bmp", "tiff", "tif", "ico", "tga");
+    private static final Set<String> CONTENT_TYPES = Set.of("image/png", "image/jpeg", "image/jpg",
+            "image/gif", "image/webp", "image/bmp", "image/x-bmp", "image/x-ms-bmp",
+            "image/tiff", "image/x-tiff", "image/x-tga", "image/tga", "image/x-targa",
+            "image/vnd.microsoft.icon", "image/x-icon", "application/octet-stream", "binary/octet-stream");
 
     private ImageProcessor() {}
 
@@ -47,7 +53,7 @@ public final class ImageProcessor {
             HttpRequest request = HttpRequest.newBuilder(uri)
                     .timeout(Duration.ofSeconds(timeout))
                     .header("User-Agent", "PrinterMod/1.0")
-                    .header("Accept", "image/png,image/jpeg,image/gif")
+                    .header("Accept", "image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/x-icon,image/x-tga")
                     .GET().build();
             HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (REDIRECTS.contains(response.statusCode())) {
@@ -64,8 +70,7 @@ public final class ImageProcessor {
             }
             String contentType = response.headers().firstValue("content-type").orElse("")
                     .toLowerCase(Locale.ROOT).split(";", 2)[0].trim();
-            if (!contentType.equals("image/png") && !contentType.equals("image/jpeg")
-                    && !contentType.equals("image/gif")) {
+            if (!acceptsContentType(contentType)) {
                 response.body().close();
                 throw new IOException("Unsupported image content type: " + contentType);
             }
@@ -101,10 +106,21 @@ public final class ImageProcessor {
     }
 
     public static BufferedImage decodeChecked(byte[] data) throws IOException {
-        try (ImageInputStream stream = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
+        // Do not require a writable temporary directory on a headless server.
+        try (ImageInputStream stream = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
             Iterator<ImageReader> readers = ImageIO.getImageReaders(stream);
-            if (!readers.hasNext()) throw new IOException("The response is not a supported image");
-            ImageReader reader = readers.next();
+            ImageReader reader = null;
+            while (readers.hasNext()) {
+                ImageReader candidate = readers.next();
+                if (FORMATS.contains(candidate.getFormatName().toLowerCase(Locale.ROOT))) {
+                    reader = candidate;
+                    break;
+                }
+                candidate.dispose();
+            }
+            // Other mods may install additional ImageIO providers. Accept only
+            // our raster formats even when a CDN supplies a generic MIME type.
+            if (reader == null) throw new IOException("Unsupported image. Use PNG, JPEG, WebP, GIF, BMP, TIFF, ICO or TGA");
             try {
                 reader.setInput(stream, true, true);
                 int width = reader.getWidth(0);
@@ -120,6 +136,13 @@ public final class ImageProcessor {
                 reader.dispose();
             }
         }
+    }
+
+    static boolean acceptsContentType(String contentType) {
+        // CDNs sometimes omit the type or send binary data. The decoder still
+        // validates the actual bytes and dimensions; HTML/SVG are not accepted.
+        String normalized = contentType.toLowerCase(Locale.ROOT).split(";", 2)[0].trim();
+        return normalized.isEmpty() || CONTENT_TYPES.contains(normalized);
     }
 
     private static BufferedImage resize(BufferedImage source, int width, int height) {

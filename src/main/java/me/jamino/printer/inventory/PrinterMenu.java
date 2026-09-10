@@ -26,17 +26,17 @@ public final class PrinterMenu extends AbstractContainerMenu {
         this.printer = inventory.player.level().getBlockEntity(pos) instanceof PrinterBlockEntity found ? found : null;
 
         if (printer != null) {
-            addSlot(new Slot(printer, PrinterBlockEntity.PAPER_SLOT, 26, 59) {
+            addSlot(new Slot(printer, PrinterBlockEntity.PAPER_SLOT, 18, 91) {
                 @Override public boolean mayPlace(ItemStack stack) { return stack.is(Items.PAPER); }
                 @Override public boolean mayPickup(Player player) { return !printer.isPrinting(); }
             });
-            addSlot(new Slot(printer, PrinterBlockEntity.INK_SLOT, 50, 59) {
+            addSlot(new Slot(printer, PrinterBlockEntity.INK_SLOT, 48, 91) {
                 @Override public boolean mayPlace(ItemStack stack) {
                     return stack.is(Items.INK_SAC) || stack.is(ModItems.COLOR_CARTRIDGE.get());
                 }
                 @Override public boolean mayPickup(Player player) { return !printer.isPrinting(); }
             });
-            addSlot(new Slot(printer, PrinterBlockEntity.OUTPUT_SLOT, 140, 59) {
+            addSlot(new Slot(printer, PrinterBlockEntity.OUTPUT_SLOT, 112, 91) {
                 @Override public boolean mayPlace(ItemStack stack) { return false; }
                 @Override public boolean mayPickup(Player player) { return !printer.isPrinting(); }
             });
@@ -44,11 +44,11 @@ public final class PrinterMenu extends AbstractContainerMenu {
 
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
-                addSlot(new Slot(inventory, column + row * 9 + 9, 8 + column * 18, 146 + row * 18));
+                addSlot(new Slot(inventory, column + row * 9 + 9, 48 + column * 18, 155 + row * 18));
             }
         }
         for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(inventory, column, 8 + column * 18, 204));
+            addSlot(new Slot(inventory, column, 48 + column * 18, 213));
         }
     }
 

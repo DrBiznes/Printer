@@ -128,8 +128,9 @@ public final class PrintedImageRenderer extends EntityRenderer<PrintedImageEntit
                 float x0 = Math.max(cellLeft, imageLeft);
                 float x1 = Math.min(cellLeft + 1.0F, imageLeft + imageWidth);
                 if (x0 >= x1) continue;
-                float u0 = (x0 - imageLeft) / imageWidth;
-                float u1 = (x1 - imageLeft) / imageWidth;
+                // The visible face points along local -Z, so screen-right is local -X.
+                float u0 = 1.0F - (x0 - imageLeft) / imageWidth;
+                float u1 = 1.0F - (x1 - imageLeft) / imageWidth;
                 float v0 = 1.0F - (y0 - imageBottom) / imageHeight;
                 float v1 = 1.0F - (y1 - imageBottom) / imageHeight;
                 frontQuad(consumer, pose, x0, y0, x1, y1, IMAGE_FRONT,
@@ -191,10 +192,11 @@ public final class PrintedImageRenderer extends EntityRenderer<PrintedImageEntit
         double localX = tileX + 0.5D - width / 2.0D;
         double localY = tileY + 0.5D - height / 2.0D;
         Direction facing = entity.getDirection();
-        Direction right = facing.getCounterClockWise();
+        // The renderer's local +X follows the clockwise direction after its Y rotation.
+        Direction right = facing.getClockWise();
         Vec3 sample = entity.getBoundingBox().getCenter()
                 .add(right.getStepX() * localX, localY, right.getStepZ() * localX)
-                .relative(facing.getOpposite(), 0.5D);
+                .relative(facing, 0.5D);
         return LevelRenderer.getLightColor(entity.level(), BlockPos.containing(sample));
     }
 

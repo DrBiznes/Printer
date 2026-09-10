@@ -56,6 +56,12 @@ public final class ModNetworking {
                 context.enqueueWork(() -> {
                     if (!(context.player() instanceof ServerPlayer player) || !payload.contentId().matches("[0-9a-f]{64}")) return;
                     byte[] png = me.jamino.printer.image.ImageStore.getVariant(player.getServer(), payload.contentId());
+                    // A source preview is only available through the open printer.
+                    if (png == null && player.containerMenu instanceof PrinterMenu menu
+                            && menu.stillValid(player) && menu.getPrinter().getPreset()
+                            .filter(preset -> preset.sourceId().equals(payload.contentId())).isPresent()) {
+                        png = me.jamino.printer.image.ImageStore.getSource(player.getServer(), payload.contentId());
+                    }
                     if (png == null) {
                         Printer.LOGGER.debug("No stored printer variant found for client request {}", payload.contentId());
                         return;
