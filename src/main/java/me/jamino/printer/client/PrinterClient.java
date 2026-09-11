@@ -1,6 +1,8 @@
 package me.jamino.printer.client;
 
 import me.jamino.printer.registry.ModMenus;
+import me.jamino.printer.item.PrinterTooltips;
+import net.minecraft.client.gui.screens.Screen;
 import me.jamino.printer.registry.ModItems;
 import me.jamino.printer.network.ModNetworking;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
@@ -19,6 +21,7 @@ public final class PrinterClient {
     }
 
     public static void registerExtensions(RegisterClientExtensionsEvent event) {
+        PrinterTooltips.setShiftDownSupplier(Screen::hasShiftDown);
         event.registerItem(new IClientItemExtensions() {
             private final ImageItemRenderer renderer = new ImageItemRenderer();
             @Override public BlockEntityWithoutLevelRenderer getCustomRenderer() { return renderer; }

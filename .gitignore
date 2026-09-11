@@ -2,6 +2,9 @@
 build/
 run/
 out/
+# IDE compiler output and temporary Java Unix-domain sockets.
+/bin/
+/socket_*
 src/generated/resources/.cache/
 .idea/
 *.iml

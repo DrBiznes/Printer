@@ -6,6 +6,7 @@ import me.jamino.printer.client.ClientImageCache;
 import me.jamino.printer.client.PrinterClient;
 import me.jamino.printer.registry.ModBlockEntities;
 import me.jamino.printer.registry.ModBlocks;
+import me.jamino.printer.registry.ModCreativeTabs;
 import me.jamino.printer.registry.ModDataComponents;
 import me.jamino.printer.registry.ModEntities;
 import me.jamino.printer.registry.ModItems;
@@ -21,7 +22,6 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import org.slf4j.Logger;
 
 @Mod(Printer.MODID)
@@ -32,13 +32,13 @@ public final class Printer {
     public Printer(IEventBus modBus, ModContainer container) {
         ModBlocks.register(modBus);
         ModItems.register(modBus);
+        ModCreativeTabs.register(modBus);
         ModBlockEntities.register(modBus);
         ModMenus.register(modBus);
         ModDataComponents.register(modBus);
         ModEntities.register(modBus);
 
         modBus.addListener(this::registerCapabilities);
-        modBus.addListener(this::addCreativeTabContents);
         modBus.addListener(ModNetworking::register);
         container.registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC);
         container.registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC);
@@ -53,14 +53,6 @@ public final class Printer {
                 Capabilities.ItemHandler.BLOCK,
                 ModBlockEntities.PRINTER.get(),
                 (PrinterBlockEntity blockEntity, net.minecraft.core.Direction side) -> blockEntity.getAutomationHandler(side));
-    }
-
-    private void addCreativeTabContents(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == net.minecraft.world.item.CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            event.accept(ModItems.PRINTER.get());
-            event.accept(ModItems.COLOR_CARTRIDGE.get());
-            event.accept(ModItems.IMAGE.get());
-        }
     }
 
     @EventBusSubscriber(modid = MODID, value = Dist.CLIENT)

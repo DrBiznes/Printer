@@ -14,6 +14,7 @@ public final class ColorCartridgeItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("item.printer.color_cartridge.charges", stack.getMaxDamage() - stack.getDamageValue()));
+        PrinterTooltips.appendCartridge(tooltip, stack.getMaxDamage() - stack.getDamageValue(),
+                PrinterTooltips.isExpanded());
     }
 }

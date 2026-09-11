@@ -3,7 +3,7 @@ package me.jamino.printer.registry;
 import me.jamino.printer.Printer;
 import me.jamino.printer.item.ColorCartridgeItem;
 import me.jamino.printer.item.ImageItem;
-import net.minecraft.world.item.BlockItem;
+import me.jamino.printer.item.PrinterItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -15,7 +15,8 @@ public final class ModItems {
             new Item.Properties().stacksTo(1));
     public static final DeferredItem<ColorCartridgeItem> COLOR_CARTRIDGE = ITEMS.registerItem(
             "color_cartridge", ColorCartridgeItem::new, new Item.Properties().durability(3));
-    public static final DeferredItem<BlockItem> PRINTER = ITEMS.registerSimpleBlockItem(ModBlocks.PRINTER);
+    public static final DeferredItem<PrinterItem> PRINTER = ITEMS.registerItem("printer",
+            properties -> new PrinterItem(ModBlocks.PRINTER.get(), properties));
 
     private ModItems() {}
 

@@ -2,7 +2,6 @@ package me.jamino.printer.item;
 
 import me.jamino.printer.data.ImageReference;
 import me.jamino.printer.registry.ModDataComponents;
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -47,23 +46,7 @@ public class ImageItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        ImageReference reference = stack.get(ModDataComponents.IMAGE_REFERENCE.get());
-        if (reference == null) {
-            tooltip.add(Component.translatable("item.printer.image.unprinted").withStyle(ChatFormatting.GRAY));
-            return;
-        }
-        if (!reference.title().isBlank()) {
-            tooltip.add(Component.literal(reference.title()).withStyle(ChatFormatting.GOLD));
-        }
-        tooltip.add(Component.translatable("item.printer.image.dimensions", reference.pixelWidth(), reference.pixelHeight())
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("item.printer.image.blocks", reference.blocksWide(), reference.blocksHigh())
-                .withStyle(ChatFormatting.GRAY));
-        if (reference.frame().isPresent()) {
-            tooltip.add(Component.translatable("item.printer.image.frame", Component.translatable(
-                    "gui.printer.frame." + reference.frame().getSerializedName())).withStyle(ChatFormatting.DARK_GRAY));
-        }
-        tooltip.add(Component.translatable("item.printer.image.mode." + reference.mode().getSerializedName())
-                .withStyle(ChatFormatting.DARK_GRAY));
+        PrinterTooltips.appendImage(tooltip, stack.get(ModDataComponents.IMAGE_REFERENCE.get()),
+                PrinterTooltips.isExpanded());
     }
 }

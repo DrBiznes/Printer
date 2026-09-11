@@ -12,6 +12,8 @@ The mod adds three items:
 - **Image** — stores a content-addressed reference to server image data and renders dynamically.
 - **Color Cartridge** — a three-use color ink supply. Vanilla ink sacs can also make monochrome prints.
 
+Find them in the **Printer** creative tab. Hold **Shift** over any of the three items for workflow, supply, automation, or placement details. Printed Image tooltips show a title (or an untitled fallback); expanded details include texture dimensions, block size, frame, and print mode.
+
 Open the printer, enter a direct PNG, JPEG, WebP, GIF, BMP, TIFF, ICO, or TGA URL, and select **Load**. The printer detects the image resolution and aspect ratio, then selects and displays an automatic physical size with a maximum four-block long edge. The **−** and **+** controls resize the print in block units while keeping its aspect ratio; players never need to enter pixel dimensions. Add the displayed amount of paper and ink, choose a frame, then select **Print**. Large prints consume one sheet of paper per occupied block. A printed item records its immutable image hash, texture resolution, physical block size, print mode, frame, and title. New presets start with an oak frame; the selector also offers no frame, white, spruce, dark oak, iron, gold, and copper.
 
 Use an Image on a wall to place a painting-style display. Placed prints render as shallow canvases with block-by-block lighting and, when selected, a raised material frame. Frame materials use vanilla texture paths, so resource packs restyle them automatically. Insert an Image into a normal item frame for a map-like display.
@@ -25,8 +27,8 @@ Animated WebP/GIF files and multipage TIFF/ICO files use their first image. Tran
 Automation uses NeoForge's standard item-handler capability, so vanilla hoppers and compatible modded pipes, funnels, chutes, and belts can interact without a hard Create dependency.
 
 - **Top:** color cartridge or ink-sac input.
-- **Left side, relative to the printer front:** paper input.
-- **Right side or bottom:** image output.
+- **Your right while looking at the front panel:** paper input.
+- **Your left while looking at the front panel, or bottom:** image output.
 - **Front and back:** no automated inventory access.
 - **Redstone:** a rising edge prints the saved preset once. A constant signal does not repeatedly print.
 
@@ -46,6 +48,10 @@ Use Java 21 and run:
 .\gradlew.bat build
 ```
 
+If VS Code reports a Gradle connection failure and the daemon log contains `Unable to establish loopback connection` followed by `UnixDomainSockets` / `Invalid argument: connect`, Java is failing to create a local socket in the Windows temporary directory. The workspace settings apply a socket-directory workaround to **new** integrated terminals.
+
+This setting affects integrated terminals, not the environment of an already running Gradle extension. Open a new terminal before retrying the build.
+
 Regenerate the original textures and a design contact sheet (`build/art-preview.png`) with Python and Pillow:
 
 ```powershell
@@ -55,11 +61,17 @@ python tools\generate_programmer_art.py
 
 ## Roadmap
 
-- configurable ink economy and multipart print tiling controls;
-- additional frame profiles and materials beyond the initial raised frame set;
-- Create-specific visual polish where standard capability interop is insufficient;
-- optional CC:Tweaked peripheral API for setting URLs, loading, querying status, and triggering prints;
-- porting modules for newer NeoForge versions and selected backports.
+The active 0.1.0 release checklist and phased implementation plan are in
+[PROJECT_PLAN.md](PROJECT_PLAN.md). The short version is:
+
+- finish the 16×16 pixel-art placeholder texture, source-dimension metadata, advancements, and translation audit; the dedicated creative tab and Shift-expanded item help are implemented;
+- defer local file upload until after 0.1.0, with server-authoritative validation and limits required when it is added;
+- harden the existing vanilla hopper/redstone automation and release workflow;
+- pursue full Ponder scenes for manual printing, hopper/redstone automation, and optional Create setups after 0.1.0.
+
+The frozen [0.1.0 release contract](docs/RELEASE_0.1.0.md) records exact limits and open blockers, and the [smoke-test matrix](docs/SMOKE_TEST_0.1.0.md) tracks release validation. Local file upload is deferred from 0.1.0. English plus a [reviewed translation contribution workflow](docs/TRANSLATING.md) is the localization deliverable; all built-in messages must still be translation-ready before release.
+
+Longer-term work includes configurable ink economy and multipart print tiling controls, additional frame profiles and materials, an optional CC:Tweaked peripheral API, Create-specific visual polish where standard capability interop is insufficient, and ports for newer NeoForge versions and selected backports.
 
 Version-specific Minecraft/NeoForge integration is kept at the edges of the project; image processing, references, storage, and print modes are separate service/data layers to make later ports less invasive.
 
