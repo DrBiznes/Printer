@@ -14,22 +14,13 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.InetAddress;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.security.MessageDigest;
-import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
 public final class ImageProcessor {
-    private static final Set<Integer> REDIRECTS = Set.of(301, 302, 303, 307, 308);
     private static final Set<String> FORMATS = Set.of("png", "jpeg", "jpg", "gif", "webp", "bmp", "tiff", "tif", "ico", "tga");
     private static final Set<String> CONTENT_TYPES = Set.of("image/png", "image/jpeg", "image/jpg",
             "image/gif", "image/webp", "image/bmp", "image/x-bmp", "image/x-ms-bmp",
@@ -39,58 +30,25 @@ public final class ImageProcessor {
     private ImageProcessor() {}
 
     public static ProcessedImage downloadCanonical(String rawUrl) throws Exception {
-        URI uri = validateUri(URI.create(rawUrl));
-        int timeout = Config.SERVER.fetchTimeoutSeconds.get();
-        int byteLimit = Config.SERVER.maxDownloadMiB.get() * 1024 * 1024;
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(Math.min(timeout, 15)))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+        return canonicalize(PublicImageDownloader.download(rawUrl,
+                Config.SERVER.maxDownloadMiB.get() * 1024 * 1024, Config.SERVER.fetchTimeoutSeconds.get(),
+                Config.SERVER.allowedHosts.get(), Config.SERVER.blockedHosts.get()));
+    }
 
-        byte[] body = null;
-        for (int redirects = 0; redirects <= 3; redirects++) {
-            validateHost(uri);
-            HttpRequest request = HttpRequest.newBuilder(uri)
-                    .timeout(Duration.ofSeconds(timeout))
-                    .header("User-Agent", "PrinterMod/1.0")
-                    .header("Accept", "image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/x-icon,image/x-tga")
-                    .GET().build();
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            if (REDIRECTS.contains(response.statusCode())) {
-                response.body().close();
-                if (redirects == 3) throw new IOException("Too many redirects");
-                String location = response.headers().firstValue("location")
-                        .orElseThrow(() -> new IOException("Redirect without a Location header"));
-                uri = validateUri(uri.resolve(location));
-                continue;
-            }
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                response.body().close();
-                throw new IOException("Image server returned HTTP " + response.statusCode());
-            }
-            String contentType = response.headers().firstValue("content-type").orElse("")
-                    .toLowerCase(Locale.ROOT).split(";", 2)[0].trim();
-            if (!acceptsContentType(contentType)) {
-                response.body().close();
-                throw new IOException("Unsupported image content type: " + contentType);
-            }
-            try (InputStream stream = response.body()) {
-                body = stream.readNBytes(byteLimit + 1);
-            }
-            if (body.length > byteLimit) throw new IOException("Image download exceeds the server limit");
-            break;
-        }
-        if (body == null) throw new IOException("Image download failed");
+    public static ProcessedImage canonicalize(byte[] body) throws IOException {
+        if (body.length == 0 || body.length > Config.SERVER.maxDownloadMiB.get() * 1024 * 1024)
+            throw new ImageFailure(ImageFailure.Reason.TOO_LARGE);
+        return canonicalize(body, Config.SERVER.maxImageWidth.get(), Config.SERVER.maxImageHeight.get());
+    }
 
+    static ProcessedImage canonicalize(byte[] body, int maxWidth, int maxHeight) throws IOException {
         BufferedImage decoded = decodeChecked(body);
-        int maxWidth = Config.SERVER.maxImageWidth.get();
-        int maxHeight = Config.SERVER.maxImageHeight.get();
         double scale = Math.min(1.0, Math.min(maxWidth / (double) decoded.getWidth(), maxHeight / (double) decoded.getHeight()));
         int width = Math.max(1, (int) Math.round(decoded.getWidth() * scale));
         int height = Math.max(1, (int) Math.round(decoded.getHeight() * scale));
         BufferedImage canonical = resize(decoded, width, height);
         byte[] png = encodePng(canonical);
-        return new ProcessedImage(hash(png), png, width, height);
+        return new ProcessedImage(hash(png), png, width, height, decoded.getWidth(), decoded.getHeight());
     }
 
     public static ProcessedImage createVariant(byte[] sourcePng, int width, int height, PrintMode mode) throws IOException {
@@ -106,6 +64,7 @@ public final class ImageProcessor {
     }
 
     public static BufferedImage decodeChecked(byte[] data) throws IOException {
+        registerBundledReaders();
         // Do not require a writable temporary directory on a headless server.
         try (ImageInputStream stream = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
             Iterator<ImageReader> readers = ImageIO.getImageReaders(stream);
@@ -120,20 +79,39 @@ public final class ImageProcessor {
             }
             // Other mods may install additional ImageIO providers. Accept only
             // our raster formats even when a CDN supplies a generic MIME type.
-            if (reader == null) throw new IOException("Unsupported image. Use PNG, JPEG, WebP, GIF, BMP, TIFF, ICO or TGA");
+            if (reader == null) throw new ImageFailure(ImageFailure.Reason.UNSUPPORTED);
             try {
                 reader.setInput(stream, true, true);
                 int width = reader.getWidth(0);
                 int height = reader.getHeight(0);
                 if (width <= 0 || height <= 0 || width > 4096 || height > 4096
                         || (long) width * height > 16_777_216L) {
-                    throw new IOException("Decoded image dimensions exceed the server limit");
+                    throw new ImageFailure(ImageFailure.Reason.DIMENSIONS);
                 }
                 BufferedImage result = reader.read(0);
                 if (result == null) throw new IOException("Image decoder returned no pixels");
                 return result;
             } finally {
                 reader.dispose();
+            }
+        }
+    }
+
+    private static void registerBundledReaders() {
+        // NeoForge puts nested libraries in its game module layer. ImageIO's
+        // context-classloader discovery can miss them (especially in integrated
+        // servers), so register the known providers in the current AWT registry.
+        // The registry is AppContext scoped, not process scoped; do not cache a
+        // global "initialized" flag across server/client thread groups.
+        var registry = javax.imageio.spi.IIORegistry.getDefaultInstance();
+        synchronized (registry) {
+            if (registry.getServiceProviderByClass(com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi.class) == null) {
+                registry.registerServiceProvider(new com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi());
+                registry.registerServiceProvider(new com.twelvemonkeys.imageio.plugins.bmp.BMPImageReaderSpi());
+                registry.registerServiceProvider(new com.twelvemonkeys.imageio.plugins.bmp.ICOImageReaderSpi());
+                registry.registerServiceProvider(new com.twelvemonkeys.imageio.plugins.tiff.TIFFImageReaderSpi());
+                registry.registerServiceProvider(new com.twelvemonkeys.imageio.plugins.tga.TGAImageReaderSpi());
+                registry.registerServiceProvider(new com.twelvemonkeys.imageio.plugins.jpeg.JPEGImageReaderSpi());
             }
         }
     }
@@ -194,7 +172,7 @@ public final class ImageProcessor {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         if (!ImageIO.write(image, "png", output)) throw new IOException("PNG encoder is unavailable");
         byte[] png = output.toByteArray();
-        if (png.length > 4 * 1024 * 1024) throw new IOException("Processed image exceeds 4 MiB");
+        if (png.length > 4 * 1024 * 1024) throw new ImageFailure(ImageFailure.Reason.TOO_LARGE);
         return png;
     }
 
@@ -206,37 +184,4 @@ public final class ImageProcessor {
         }
     }
 
-    private static URI validateUri(URI uri) throws IOException {
-        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if (!scheme.equals("http") && !scheme.equals("https")) throw new IOException("Only HTTP and HTTPS URLs are allowed");
-        if (uri.getUserInfo() != null) throw new IOException("URLs containing credentials are not allowed");
-        if (uri.getHost() == null || uri.getHost().isBlank()) throw new IOException("URL has no valid host");
-        return uri;
-    }
-
-    private static void validateHost(URI uri) throws IOException {
-        String host = uri.getHost().toLowerCase(Locale.ROOT);
-        List<? extends String> allowed = Config.SERVER.allowedHosts.get();
-        List<? extends String> blocked = Config.SERVER.blockedHosts.get();
-        if (!allowed.isEmpty() && allowed.stream().noneMatch(value -> hostMatches(host, value))) {
-            throw new IOException("Image host is not on the server allowlist");
-        }
-        if (blocked.stream().anyMatch(value -> hostMatches(host, value))) {
-            throw new IOException("Image host is blocked by the server");
-        }
-        for (InetAddress address : InetAddress.getAllByName(host)) {
-            byte[] bytes = address.getAddress();
-            boolean carrierGradeNat = bytes.length == 4 && (bytes[0] & 255) == 100 && ((bytes[1] & 192) == 64);
-            boolean ipv6UniqueLocal = bytes.length == 16 && ((bytes[0] & 254) == 0xFC);
-            if (address.isAnyLocalAddress() || address.isLoopbackAddress() || address.isLinkLocalAddress()
-                    || address.isSiteLocalAddress() || address.isMulticastAddress() || carrierGradeNat || ipv6UniqueLocal) {
-                throw new IOException("Image URL resolves to a non-public address");
-            }
-        }
-    }
-
-    private static boolean hostMatches(String host, String configured) {
-        String value = configured.toLowerCase(Locale.ROOT).trim();
-        return !value.isEmpty() && (host.equals(value) || host.endsWith("." + value));
-    }
 }

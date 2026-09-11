@@ -6,48 +6,53 @@ Ship 0.1.0 as a coherent first public release of Printer: a player can discover 
 
 The 0.1.0 release should prioritize a small, polished gameplay loop over a large compatibility surface. Ponder integration is a long-term goal and is intentionally not a release blocker.
 
-## Baseline when this plan was written
+## Current baseline — 0.0.10
 
-- Current version: 0.0.8.
-- URL loading, server-authoritative image storage, printed Image items, wall displays, frames, color/monochrome printing, hopper-compatible item handling, and rising-edge redstone printing already exist.
-- The three mod items are currently inserted into vanilla Functional Blocks rather than a dedicated Printer creative tab.
-- `image.png` is already 16×16, but its rounded, high-fidelity appearance does not match the rest of the mod's hard-edged pixel-art style.
-- Only `en_us.json` is present, so translation readiness and a second shipped language still need to be planned.
+- Current version: 0.0.10.
+- URL loading, local file upload, server-authoritative image storage, source-dimension metadata, printed Image items, wall displays, color/monochrome printing, hopper-compatible item handling, and rising-edge redstone printing are implemented.
+- The dedicated Printer creative tab, all-item Shift tooltip behavior, core advancements, translated built-in strings, and regression coverage are implemented.
+- `image.png` is still 16×16, but its rounded, high-fidelity appearance does not match the rest of the mod's hard-edged pixel-art style.
+- The active design still exposes selectable frame materials and a frame button; this will be removed before 0.1.0.
+- The image-processing pipeline currently composites empty/transparent pixels against white; 0.1.0 will make that background color selectable, with white remaining the default.
 
 ## Implementation progress — 2026-09-10
 
-- Frozen the first-release scope in [docs/RELEASE_0.1.0.md](docs/RELEASE_0.1.0.md), with exact implemented limits, supported versions, open safety/compatibility blockers, and a concrete path for each P0 gate.
-- Added a dedicated Printer creative tab and collapsed/Shift-expanded help for all three registered items. The Image tooltip currently reports **texture** dimensions accurately; source dimensions still require a backward-compatible metadata change before the full tooltip gate closes.
-- Added registered-item tooltip and creative-tab regression tests. Fresh client visual verification remains pending.
-- Verification: `gradlew.bat build --offline` passes with **39 tests, zero failures** (14 new tooltip/creative-tab cases). The NeoForge unit-test target loads the mod on the dedicated-server distribution; this is not a dedicated-server gameplay smoke test. Java required a short temporary directory at `build/tmp` on this machine.
-- Selected the reviewed [translation contribution workflow](docs/TRANSLATING.md) option; no second language is claimed as shipped.
-- Deferred local file upload from 0.1.0 to keep the first release focused on the existing URL pipeline and its hardening gaps.
-- Added [docs/SMOKE_TEST_0.1.0.md](docs/SMOKE_TEST_0.1.0.md). Gameplay checks, advancements, art, the full translation audit, and final packaging are still open. These preparation changes are packaged as testing version 0.0.9; this is not a 0.1.0 release sign-off.
+- The first-release scope and exact implementation limits are documented in [docs/RELEASE_0.1.0.md](docs/RELEASE_0.1.0.md).
+- The dedicated Printer creative tab, all-item collapsed/Shift-expanded tooltips, source metadata, advancements, translation workflow, and local upload are implemented and covered by tests.
+- Server packet menu-validity checks, upload validation, image transfer integrity, and legacy metadata handling are implemented.
+- Verification recorded for the 0.0.10 preparation work: `gradlew.bat build --offline` passes with 39 tests and zero failures. This is automated verification only; fresh client and dedicated-server gameplay checks remain pending.
+- The only new feature work required for the final pass is frame removal, selectable background fill color, Create/AnalogAudio-style tooltip formatting, texture cleanup, and GUI polish.
 
 ## 0.1.0 launch checklist
 
 ### P0 — must be complete before release
 
-- [x] Define and freeze the 0.1.0 feature contract: supported Minecraft/NeoForge versions, supported image formats, size/storage limits, automation behavior, and known limitations. See [release contract](docs/RELEASE_0.1.0.md).
-- [ ] Replace the blank Image placeholder texture at `src/main/resources/assets/printer/textures/item/image.png` with a deliberately simple 16×16 pixel-art item. Use hard pixel edges, no anti-aliasing, a small palette, and a silhouette that remains readable in the inventory, printer preview, and fallback render.
+- [ ] Update and re-freeze the 0.1.0 feature contract for the no-frame/background-color design. Keep the existing version, image, upload, storage, and automation limits. See [release contract](docs/RELEASE_0.1.0.md).
+- [ ] Replace the blank Image placeholder texture at `src/main/resources/assets/printer/textures/item/image.png` with a deliberately simple 16×16 pixel-art item. Texture polish remains a final release gate.
 - [x] Add a dedicated Printer creative tab with a printer icon and a deliberate item order: Printer, Color Cartridge, Image. Remove the duplicate vanilla Functional Blocks insertion unless there is a clear discoverability reason to keep it.
-- [ ] Refine the tooltip for every registered Printer item and add Shift-expanded details, following the AnalogAudio-style interaction:
-  - **Printer:** default explains that it loads and prints images; Shift adds the basic workflow, paper/ink requirements, output behavior, and hopper/redstone automation summary.
-  - **Color Cartridge:** default shows its remaining charges and purpose; Shift adds that it supplies color ink and can be inserted into the printer's ink slot.
-  - **Image:** default shows the title or a useful fallback name plus a short placement hint; Shift adds title, source pixel dimensions, physical block size, frame, print mode, and placement behavior.
-  - Every collapsed tooltip shows a translated “Hold Shift for details” hint where more information is available.
-  - Keep tooltip behavior safe for dedicated servers and avoid exposing the source URL or other unnecessary network information.
+- [x] Implement refined tooltips for every registered Printer item with collapsed and Shift-expanded details.
+- [ ] Restyle those tooltips to match the shared Create/AnalogAudio convention:
+  - use separate translated `tooltip.summary`, `tooltip.conditionN`, and `tooltip.behaviourN` entries;
+  - keep the concise summary visible by default;
+  - show condition/behaviour detail lines only while Shift is held;
+  - use the same emphasis/formatting convention in localized values, without concatenated English-only paragraphs;
+  - update Image details to report background color and omit frame data;
+  - retain the dedicated-server-safe keyboard bridge and never expose the source URL or internal image ID.
 - [x] Add tooltip regression coverage for all three items in both collapsed and expanded states, including unprinted and printed Image stacks and depleted/partially-used Color Cartridges.
-- [ ] Add advancements for the core loop:
+- [ ] Add visual tooltip checks at normal and large GUI scales after the formatting migration.
+- [x] Add advancements for the core loop:
   - craft or obtain the Printer;
   - load an image;
   - print the first Image;
   - place an Image display;
   - complete an automated print using hopper/item handling and redstone;
   - optionally, make a color print with a Color Cartridge if the first pass has a meaningful reward.
-- [ ] Make all player-facing strings translation-ready. Audit Java literals, GUI labels, tooltip lines, status/error messages, advancement titles/descriptions, and item/block names for missing translation keys.
+- [x] Make all player-facing strings translation-ready. Audit Java literals, GUI labels, tooltip lines, status/error messages, advancement titles/descriptions, and item/block names for missing translation keys.
 - [x] Choose and ship at least one additional language, or explicitly mark the translation contribution workflow as the 0.1.0 community-ready deliverable if no target language is available yet. Selected the [reviewed contribution workflow](docs/TRANSLATING.md); no unreviewed machine translations.
-- [ ] Add regression coverage for advancement triggers, creative-tab contents, tooltip states, and any upload protocol validation.
+- [x] Add regression coverage for advancement triggers, creative-tab contents, tooltip states, upload protocol validation, image transfer integrity, metadata round trips, and local file reads.
+- [ ] Remove the frame selector and make all new prints use `PrintFrame.NONE`. Preserve old save/item/network decoding long enough to normalize legacy frame values to `NONE`, then remove unused frame rendering and active frame-selection paths.
+- [ ] Add a selectable background fill color with white as the default. Prefer a compact in-GUI palette for 0.1.0; persist the selected 24-bit color in the preset and Image metadata, carry it through save/drop/network paths, and include it in variant generation/deduplication.
+- [ ] Preserve transparency until the selected background is applied during canonical/variant processing. Existing stored white-composited sources must continue loading with white as their compatibility default.
 - [ ] Run a release smoke test in a fresh instance on both client and dedicated server:
   - manual URL load and print;
   - invalid/oversized image rejection;
@@ -55,24 +60,26 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
   - one redstone rising edge per print;
   - block break/re-place with the saved preset;
   - item-frame and wall placement;
-  - tooltip with and without Shift;
+  - tooltip with and without Shift, using the final Create/AnalogAudio-style formatting;
+  - default and non-white background colors, including transparent source pixels;
+  - no frame selector, no rendered decorative border, and legacy saved data normalized safely;
   - translated text loading.
 - [ ] Update README, CHANGELOG, credits/license notes, mod metadata, and the release artifact version to 0.1.0.
 
 ### P1 — strong 0.1.0 candidates
 
-- [ ] Add local file upload if the UX and protocol can be completed without weakening the server-authoritative safety model. The MVP should use a client file picker, bounded chunk transfer, server-side decode/validation, content-addressed storage, and the same byte/dimension/rate limits as URL loading.
-- [ ] Make local upload work clearly in single-player and on dedicated servers. Show actionable errors for cancellation, unsupported formats, size limits, transfer failure, and server policy rejection.
-- [ ] Add a small in-game help path for automation, either through the expanded tooltip/GUI help or a short README recipe, until Ponder is available.
-- [ ] Add a visual art pass over the block, cartridge, GUI, ghost slots, and fallback textures so the new Image texture does not look isolated.
-- [ ] Add automated tests for malformed upload packets, truncated transfers, duplicate content, disconnects during transfer, and upload permission/rate limits.
+- [x] Add local file upload with a client file picker, bounded chunk transfer, server-side decode/validation, content-addressed storage, and the same byte/dimension/rate limits as URL loading.
+- [x] Make local upload work in single-player and on dedicated servers. Show actionable errors for cancellation, unsupported formats, size limits, transfer failure, and server policy rejection.
+- [x] Add a small in-game help path for automation through the expanded item tooltip and README recipe until Ponder is available.
+- [ ] Add the final visual art pass over the block, cartridge, GUI, ghost slots, fallback texture, background-color control, and status indicators.
+- [x] Add automated tests for malformed upload packets, truncated transfers, duplicate content, disconnects during transfer, and upload permission/rate limits.
 
 ### P2 — explicitly post-0.1.0
 
 - [ ] Add the full Ponder integration and interactive scenes. This is not a 0.1.0 launch gate.
 - [ ] Add Create-specific automation scenes and polish after the base Ponder scenes are stable.
 - [ ] Configurable ink economy and multipart print tiling controls.
-- [ ] Additional frame profiles/materials, CC:Tweaked support, and broader version ports.
+- [ ] CC:Tweaked support and broader version ports.
 
 ## Work phases
 
@@ -84,13 +91,13 @@ Exit criteria: the scope is frozen, known limitations are documented, and every 
 
 ### Phase 2 — Player-facing polish
 
-Complete the 16×16 Image texture redesign, dedicated creative tab, refined tooltips for all three items with Shift-expanded details, translation-key audit, and advancements. These are tightly coupled: the creative tab gives discovery, the tooltips explain every item and printed image, translations cover every new string, and advancements provide a guided first session.
+Complete frame removal, selectable background color, Create/AnalogAudio-style tooltip formatting, the 16×16 Image texture redesign, and final GUI polish. The creative tab, item tooltip behavior, translation audit, advancements, upload flow, and automated regression coverage are already complete.
 
-Exit criteria: a new player can find the mod in Creative, understand the Printer, Color Cartridge, and both unprinted and printed Image states from their tooltips, and follow the advancement tree through a first successful print.
+Exit criteria: a new player can find the mod in Creative, understand all three items from consistently formatted tooltips, choose a background color, print a borderless Image, and follow the advancement tree through a first successful print.
 
 ### Phase 3 — Local upload MVP
 
-Design the upload flow before coding it. The client selects a local file and sends bounded chunks; the server owns validation, decoding, dimension checks, storage, deduplication, and the resulting image reference. Reuse the existing image limits and content-addressed store rather than creating a second image pipeline.
+Local upload is implemented. Keep this phase as a verification and maintenance phase: the client selects a local file and sends bounded chunks; the server owns validation, decoding, dimension checks, storage, deduplication, and the resulting image reference. Reuse the existing image limits and content-addressed store rather than creating a second image pipeline.
 
 Recommended safeguards:
 
@@ -101,7 +108,7 @@ Recommended safeguards:
 - clear distinction between local upload and URL loading in the GUI;
 - no client-only classes referenced from common/server code.
 
-Exit criteria: a local file can be selected and printed in single-player and dedicated-server testing, and every failure mode produces a translated, actionable message.
+Exit criteria: the implemented local-file path passes single-player and dedicated-server testing, and every failure mode produces a translated, actionable message.
 
 ### Phase 4 — Compatibility and release hardening
 
@@ -136,7 +143,7 @@ Ponder exit criteria: after 0.1.0, a player can open the guide from the Printer,
 - The blank Image texture is unmistakably intentional 16×16 pixel art.
 - Creative inventory, refined tooltips for every item, Shift-expanded details, advancements, and GUI strings are complete and translated according to the release decision.
 - Vanilla hopper and redstone automation remains reliable and documented.
-- Local upload is either shipped with server-side safeguards and tests or clearly deferred before the release branch is cut.
+- Local upload is shipped with server-side safeguards and tests; the remaining release gate is texture polish and clean-instance verification.
 - Build, automated tests, and clean-instance smoke tests pass on the supported environment.
 - Full Ponder scenes are tracked as the next documentation milestone, not a 0.1.0 release dependency.
 

@@ -65,6 +65,9 @@ public final class PrinterTooltips {
         tooltip.add(Component.translatable("item.printer.image.title", title).withStyle(ChatFormatting.GOLD));
         tooltip.add(line("item.printer.image.place"));
         if (expanded) {
+            tooltip.add(reference.sourceWidth() > 0 && reference.sourceHeight() > 0
+                    ? line("item.printer.image.source", reference.sourceWidth(), reference.sourceHeight())
+                    : line("item.printer.image.source_unknown"));
             tooltip.add(line("item.printer.image.dimensions", reference.pixelWidth(), reference.pixelHeight()));
             tooltip.add(line("item.printer.image.blocks", reference.blocksWide(), reference.blocksHigh()));
             tooltip.add(line("item.printer.image.frame",

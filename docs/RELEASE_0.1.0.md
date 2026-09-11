@@ -1,7 +1,6 @@
 # Printer 0.1.0 release contract
 
-Status: scope frozen; release gates still open. This is the target contract, not a release sign-off.
-The current testing artifact is 0.0.9; 0.1.0 remains gated on the release checks.
+Status: 0.0.10 implementation is complete for the original feature set. The final 0.1.0 scope adds frame removal, selectable background fill color, tooltip formatting polish, final texture/GUI polish, and clean-instance release verification. This is not yet a release sign-off.
 
 ## Supported environment
 
@@ -14,8 +13,8 @@ The current testing artifact is 0.0.9; 0.1.0 remains gated on the release checks
 
 | Area | 0.1.0 contract |
 | --- | --- |
-| Input | Direct HTTP(S) URLs to PNG, JPEG, WebP, GIF, BMP, TIFF, ICO, or TGA. No local upload in 0.1.0. |
-| Decode | First frame/page only; transparency becomes white paper. AVIF, HEIC, SVG, HTML, and other unsupported bytes are rejected. |
+| Input | Direct HTTP(S) URLs or local files selected by the client to PNG, JPEG, WebP, GIF, BMP, TIFF, ICO, or TGA. |
+| Decode | First frame/page only; transparent/empty pixels are composited against the selected background color, white by default. AVIF, HEIC, SVG, HTML, and other unsupported bytes are rejected. |
 | Remote response | At most three redirects. Missing/binary MIME types require valid supported image bytes. URLs with credentials are rejected. |
 | Source decode ceiling | 4096 pixels per axis, at most 16,777,216 pixels, checked before pixel decoding. |
 | Stored source resolution | Downscale to fit 1024×1024 by default; `images.maxWidth` and `maxHeight` each permit 1–4096. These settings resize accepted images; they are not the original-image rejection threshold. |
@@ -27,9 +26,11 @@ The current testing artifact is 0.0.9; 0.1.0 remains gated on the release checks
 | Texture size | Up to 128 pixels per long-edge block, without upscaling the saved source. |
 | Supplies | One paper per occupied block and one cartridge charge (color) or ink sac (monochrome) per successful print. A fresh cartridge has three charges. |
 | Output | One Image item; output slot must be empty. Supplies are consumed when the job succeeds. |
-| Placement | Supported vertical wall with enough clearance, or ordinary item frame. Unprinted creative Image stacks cannot make wall displays. |
-| Preset | Saved source, title, size, and frame persist on the block and on the dropped Printer item. Image data remains in the originating world's save. |
-| Display cache | Requested images are sent in chunks of at most 256 KiB. Client texture LRU budget defaults to 128 MiB, configurable from 16–1024 MiB. |
+| Placement | Supported vertical wall with enough clearance, or ordinary Minecraft item frame. Printed wall displays always use no decorative border. Unprinted creative Image stacks cannot make wall displays. |
+| Preset | Saved source, title, size, and background color persist on the block and on the dropped Printer item. New and normalized legacy presets always use no decorative border. Image data remains in the originating world's save. |
+| Display cache | Requested images are sent in chunks of at most 256 KiB. The client verifies the content hash, expires incomplete transfers, and bounds in-flight assembly. Texture LRU budget defaults to 128 MiB, configurable from 16–1024 MiB. |
+
+Local uploads use a 24 KiB client-to-server chunk protocol, one active transfer per player, a 64 MiB transfer ceiling, a 120-second deadline, cancellation/disconnect cleanup, and the server's existing decode, dimension, storage, and request limits. The server never receives or reads a client filesystem path.
 
 ## Automation
 
@@ -39,26 +40,34 @@ Directions are relative to the printer's facing property, as implemented in `Pri
 - Clockwise from facing or bottom extracts printed Images.
 - For a player looking at the front panel, paper is on the player's right and output is on the player's left. Tooltips use this viewpoint to avoid ambiguous left/right directions.
 - Front, back, and unsided requests expose no automated slots.
-- One low-to-high redstone transition requests one print of the saved preset. Sustained power does not repeat. Pulses while busy are ignored, not queued.
+- One low-to-high redstone transition requests one print of the saved preset. Sustained power does not repeat. Pulses while busy are ignored, not queued. Supplies, output occupancy, and the busy gate are the print-rate gates.
 - Prefer a button pulse followed by time for completion and output extraction. A side hopper must point into the paper face; a bottom hopper extracts output. Test all four printer orientations.
 
 ## Discovery and localization
 
-The Printer creative tab orders Printer, Color Cartridge, then Image, using a Printer icon. These items are removed from the vanilla Functional Blocks insertion. Tooltips provide a short description and a translated Shift hint, with expanded workflow, automation, supplies, and placement details.
+The Printer creative tab orders Printer, Color Cartridge, then Image, using a Printer icon. These items are removed from the vanilla Functional Blocks insertion. Tooltips provide a short summary and translated Shift hint, with expanded workflow, automation, supplies, placement, and background-color details using the Create/AnalogAudio summary/condition/behaviour presentation style.
 
 The shipped language is English. A documented, reviewable translation contribution workflow is the 0.1.0 community-ready deliverable permitted by the project plan; see [TRANSLATING.md](TRANSLATING.md). No unreviewed machine translation will be shipped. Every built-in message must still be translatable before release, even if English is the only bundled language.
 
-## Open release blockers from the initial audit
+## Completed implementation audit
 
-These need implementation and/or explicit verification before the smoke-test sign-off:
+The 0.0.10 implementation addressed the initial audit items:
 
-1. **Asynchronous job identity and supplies:** completion callbacks look up only the block position, so a removed/replaced Printer can receive an old job's result. Ink type can also change while processing; completion checks supplies but does not confirm the selected print mode. Bind completion to the original block/job and validate or reserve supplies; add regressions for replacement, unload, and ink swaps.
-2. **Errors and logging:** `PrinterJobService` sends English literals and raw exception messages; URL failures log the entire URL and exception. Use translated, actionable error categories and avoid logging URL credentials/query tokens or passing exception text to players.
-3. **Download hardening:** the HTTP client resolves hosts separately from the address validation check. Audit DNS rebinding and the completeness of non-public address rejection. Reading an `InputStream` body also needs a tested total deadline. The two-worker executor has an unbounded queue and no per-player rate limiter; bound work before calling this release hardened.
-4. **Request validity:** load/resize/frame/print packets check the open menu and position, but do not call `menu.stillValid(player)` as source-preview requests do. Add server-side validity checks and packet regressions.
-5. **Image metadata:** printed Images store texture dimensions, not source dimensions. Tooltips deliberately label these as texture pixels. Add backward-compatible source metadata, preserve it through placement/drop/save/network round trips, and test old items before closing the full Image-tooltip checklist item.
-6. **Build reproducibility:** the existing Parchment configuration names 1.21.11 with a nightly snapshot while Minecraft is 1.21.1. Select and validate matching stable mappings before the final artifact build; the first pass keeps the existing cached mapping setup.
-7. **Gameplay gates:** texture redesign, advancement triggers and tests, full translation audit, client visual checks, dedicated-server gameplay checks, and exact-artifact smoke tests remain open.
+1. **Asynchronous job identity and supplies:** implemented with block identity/job generations, loaded-chunk checks, mode validation, and supply rechecks; covered by unit and GameTest regressions.
+2. **Errors and logging:** implemented with translated categories and sanitized debug logging.
+3. **Download hardening:** implemented with the validated Apache resolver, public-address checks, redirect/body deadlines, bounded workers, and shared URL/upload throttling.
+- Request-validity checks now verify the open, nearby menu on server-bound actions.
+- Printed Images carry backward-compatible source-dimension metadata through placement/drop/save/network round trips.
+- The version and mappings are aligned to Minecraft 1.21.1 / NeoForge 21.1.248 for the current preparation build.
+- Advancements, translation-key coverage, local upload, automated tests, and regression coverage are implemented.
+
+## Remaining 0.1.0 implementation gates
+
+1. **Frame simplification:** remove the frame selector and active decorative-border rendering. New prints must use `PrintFrame.NONE`; old serialized values must decode safely and normalize to no frame.
+2. **Background color:** add a compact in-GUI palette, defaulting to white. Persist the selected color in presets and Image metadata, apply it to transparent/empty pixels during variant generation, and include it in variant identity/deduplication.
+3. **Tooltip presentation:** migrate the existing all-item tooltips to the Create/AnalogAudio-style summary, condition, and behaviour key structure, including translated emphasis and final no-frame/background details.
+4. **Art and GUI:** replace the rounded Image placeholder with simple 16×16 pixel art and replace the frame button with the background-color control.
+5. **Release verification:** run the full client/dedicated-server smoke matrix against the exact 0.1.0 artifact.
 
 ## Implementation path for the remaining P0 work
 
@@ -67,11 +76,11 @@ These need implementation and/or explicit verification before the smoke-test sig
 | Contract | This document; metadata bounded to Minecraft 1.21.1 / NeoForge 21.1. |
 | Image art | Update the existing art workflow and the 16×16 asset; inspect inventory, preview, and fallback rendering. |
 | Creative tab | Registered tab plus tests of icon, order, search contents, and no vanilla duplication. |
-| Tooltips | All three registered items, both Shift states, blank/printed Images, all frames/modes, used/depleted cartridges; source metadata remains tracked above. |
+| Tooltips | All three registered items, both Shift states, blank/printed Images, used/depleted cartridges, background color details, and the final Create/AnalogAudio-style formatting; no frame data is shown. |
 | Advancements | Server-side success triggers for obtain, load, print, place, and automated print. Decide automation credit/ownership explicitly; test failure and repeated-trigger cases. |
 | Localization | Replace literal job failures and audit GUI/config/advancement/entity text. Document contributor review and in-game validation. |
 | Safety regressions | Address the identity, supply, request, and downloader gaps above before expanding input types. Upload protocol tests are inapplicable while upload is deferred. |
 | Smoke tests | Run [SMOKE_TEST_0.1.0.md](SMOKE_TEST_0.1.0.md) on fresh saves and the exact final artifact. |
 | Release packaging | Update changelog, README, credits/license review and metadata; bump to 0.1.0 only after release gates pass. Record artifact checksum and bug-report path. |
 
-Local file upload, the broader art pass, Ponder scenes, Create scenes, extra frames, CC:Tweaked, version ports, and configurable ink economy are deferred. Reopening scope requires updating this contract and its verification matrix before cutting a release.
+Full Ponder scenes, Create scenes, extra frame profiles/materials, CC:Tweaked, version ports, and configurable ink economy are deferred until after 0.1.0. Background color and tooltip presentation are in scope for 0.1.0. Reopening scope requires updating this contract and its verification matrix before cutting a release.

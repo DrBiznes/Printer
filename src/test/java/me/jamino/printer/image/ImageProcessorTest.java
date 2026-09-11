@@ -53,6 +53,20 @@ final class ImageProcessorTest {
     }
 
     @Test
+    void canonicalizationDeduplicatesUploadsAndPreservesOriginalDimensions() throws Exception {
+        BufferedImage input = new BufferedImage(1200, 600, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        ImageIO.write(input, "png", bytes);
+        ProcessedImage first = ImageProcessor.canonicalize(bytes.toByteArray(), 300, 300);
+        ProcessedImage duplicate = ImageProcessor.canonicalize(bytes.toByteArray(), 300, 300);
+        assertEquals(first.contentId(), duplicate.contentId());
+        assertEquals(300, first.width());
+        assertEquals(150, first.height());
+        assertEquals(1200, first.originalWidth());
+        assertEquals(600, first.originalHeight());
+    }
+
+    @Test
     void acceptsCdnTypesButRejectsDocumentsAndUnsupportedCodecs() {
         for (String type : new String[]{"image/webp", "IMAGE/TIFF; charset=binary", "image/x-icon",
                 "image/x-tga", "application/octet-stream", ""}) {

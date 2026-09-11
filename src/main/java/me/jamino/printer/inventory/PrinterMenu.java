@@ -27,12 +27,12 @@ public final class PrinterMenu extends AbstractContainerMenu {
 
         if (printer != null) {
             addSlot(new Slot(printer, PrinterBlockEntity.PAPER_SLOT, 18, 91) {
-                @Override public boolean mayPlace(ItemStack stack) { return stack.is(Items.PAPER); }
+                @Override public boolean mayPlace(ItemStack stack) { return printer.canPlaceItem(PrinterBlockEntity.PAPER_SLOT, stack); }
                 @Override public boolean mayPickup(Player player) { return !printer.isPrinting(); }
             });
             addSlot(new Slot(printer, PrinterBlockEntity.INK_SLOT, 48, 91) {
                 @Override public boolean mayPlace(ItemStack stack) {
-                    return stack.is(Items.INK_SAC) || stack.is(ModItems.COLOR_CARTRIDGE.get());
+                    return printer.canPlaceItem(PrinterBlockEntity.INK_SLOT, stack);
                 }
                 @Override public boolean mayPickup(Player player) { return !printer.isPrinting(); }
             });
@@ -57,7 +57,7 @@ public final class PrinterMenu extends AbstractContainerMenu {
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        if (printer == null || index < 0 || index >= slots.size()) return ItemStack.EMPTY;
+        if (printer == null || printer.isPrinting() || index < 0 || index >= slots.size()) return ItemStack.EMPTY;
         Slot slot = slots.get(index);
         if (!slot.hasItem()) return ItemStack.EMPTY;
         ItemStack stack = slot.getItem();

@@ -19,42 +19,53 @@ import java.util.function.Consumer;
 
 public final class ModNetworking {
     public static Consumer<ImageChunkPayload> CLIENT_IMAGE_CHUNK_HANDLER = payload -> {};
+    public static Consumer<UploadReplyPayload> CLIENT_UPLOAD_REPLY_HANDLER = payload -> {};
+    private static final me.jamino.printer.job.RequestThrottle IMAGE_REQUESTS = new me.jamino.printer.job.RequestThrottle();
+    public static void clearPlayer(java.util.UUID player) { IMAGE_REQUESTS.remove(player); }
+    public static void clearRequests() { IMAGE_REQUESTS.clear(); }
+    public static boolean canUsePrinter(ServerPlayer player, BlockPos pos) {
+        return !player.hasDisconnected() && player.isAlive() && !player.isSpectator()
+                && player.containerMenu instanceof PrinterMenu menu && menu.getPrinter() != null
+                && menu.getPrinter().getLevel() == player.level()
+                && menu.getPos().equals(pos) && menu.stillValid(player);
+    }
     private static final int CHUNK_SIZE = 256 * 1024;
     private ModNetworking() {}
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("3");
+        PayloadRegistrar registrar = event.registrar("4");
         registrar.playToServer(LoadImagePayload.TYPE, LoadImagePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
-                            && menu.getPos().equals(payload.pos()) && player.level() instanceof ServerLevel level) {
+                            && canUsePrinter(player, payload.pos()) && player.level() instanceof ServerLevel level) {
                         PrinterJobService.requestLoad(level, payload.pos(), player, payload.url(), payload.title());
                     }
                 }));
         registrar.playToServer(ResizePresetPayload.TYPE, ResizePresetPayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
-                            && menu.getPos().equals(payload.pos()) && player.level() instanceof ServerLevel level) {
+                            && canUsePrinter(player, payload.pos()) && player.level() instanceof ServerLevel level) {
                         PrinterJobService.requestResize(level, payload.pos(), payload.change());
                     }
                 }));
         registrar.playToServer(CycleFramePayload.TYPE, CycleFramePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
-                            && menu.getPos().equals(payload.pos()) && player.level() instanceof ServerLevel level) {
+                            && canUsePrinter(player, payload.pos()) && player.level() instanceof ServerLevel level) {
                         PrinterJobService.requestFrame(level, payload.pos(), payload.change());
                     }
                 }));
         registrar.playToServer(PrintPayload.TYPE, PrintPayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
-                            && menu.getPos().equals(payload.pos()) && player.level() instanceof ServerLevel level) {
+                            && canUsePrinter(player, payload.pos()) && player.level() instanceof ServerLevel level) {
                         PrinterJobService.requestPrint(level, payload.pos(), player);
                     }
                 }));
         registrar.playToServer(RequestImagePayload.TYPE, RequestImagePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (!(context.player() instanceof ServerPlayer player) || !payload.contentId().matches("[0-9a-f]{64}")) return;
+                    if (!IMAGE_REQUESTS.acquire(player.getUUID(), System.nanoTime(), 100_000_000L)) return;
                     byte[] png = me.jamino.printer.image.ImageStore.getVariant(player.getServer(), payload.contentId());
                     // A source preview is only available through the open printer.
                     if (png == null && player.containerMenu instanceof PrinterMenu menu
@@ -68,6 +79,20 @@ public final class ModNetworking {
                     }
                     sendImage(player, payload.contentId(), png);
                 }));
+        registrar.playToServer(BeginUploadPayload.TYPE, BeginUploadPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) ServerUploads.begin(player, payload);
+                }));
+        registrar.playToServer(UploadChunkPayload.TYPE, UploadChunkPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) ServerUploads.chunk(player, payload);
+                }));
+        registrar.playToServer(CancelUploadPayload.TYPE, CancelUploadPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) ServerUploads.cancel(player, payload.id());
+                }));
+        registrar.playToClient(UploadReplyPayload.TYPE, UploadReplyPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> CLIENT_UPLOAD_REPLY_HANDLER.accept(payload)));
         registrar.playToClient(ImageChunkPayload.TYPE, ImageChunkPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> CLIENT_IMAGE_CHUNK_HANDLER.accept(payload)));
     }
@@ -157,6 +182,40 @@ public final class ModNetworking {
                 ByteBufCodecs.VAR_INT, ImageChunkPayload::total,
                 BYTES, ImageChunkPayload::bytes,
                 ImageChunkPayload::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record BeginUploadPayload(BlockPos pos, java.util.UUID id, int size, String title) implements CustomPacketPayload {
+        public static final Type<BeginUploadPayload> TYPE = new Type<>(Printer.id("begin_upload"));
+        public static final StreamCodec<FriendlyByteBuf, BeginUploadPayload> STREAM_CODEC = StreamCodec.of(
+                (b, p) -> { b.writeBlockPos(p.pos); b.writeUUID(p.id); b.writeVarInt(p.size); b.writeUtf(p.title, 64); },
+                b -> new BeginUploadPayload(b.readBlockPos(), b.readUUID(), b.readVarInt(), b.readUtf(64)));
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record UploadChunkPayload(java.util.UUID id, int index, byte[] bytes) implements CustomPacketPayload {
+        public static final Type<UploadChunkPayload> TYPE = new Type<>(Printer.id("upload_chunk"));
+        public static final StreamCodec<FriendlyByteBuf, UploadChunkPayload> STREAM_CODEC = StreamCodec.of(
+                (b, p) -> {
+                    if (p.bytes.length > UploadTransfers.CHUNK_BYTES) throw new IllegalArgumentException("Upload chunk too large");
+                    b.writeUUID(p.id); b.writeVarInt(p.index); b.writeByteArray(p.bytes);
+                }, b -> new UploadChunkPayload(b.readUUID(), b.readVarInt(), b.readByteArray(UploadTransfers.CHUNK_BYTES)));
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record CancelUploadPayload(java.util.UUID id) implements CustomPacketPayload {
+        public static final Type<CancelUploadPayload> TYPE = new Type<>(Printer.id("cancel_upload"));
+        public static final StreamCodec<FriendlyByteBuf, CancelUploadPayload> STREAM_CODEC = StreamCodec.of(
+                (b, p) -> b.writeUUID(p.id), b -> new CancelUploadPayload(b.readUUID()));
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /** Nonnegative next chunk index; -1 error/cancel, -2 decoding, -3 complete. */
+    public record UploadReplyPayload(java.util.UUID id, int next, String status) implements CustomPacketPayload {
+        public static final Type<UploadReplyPayload> TYPE = new Type<>(Printer.id("upload_reply"));
+        public static final StreamCodec<FriendlyByteBuf, UploadReplyPayload> STREAM_CODEC = StreamCodec.of(
+                (b, p) -> { b.writeUUID(p.id); b.writeVarInt(p.next); b.writeUtf(p.status, 128); },
+                b -> new UploadReplyPayload(b.readUUID(), b.readVarInt(), b.readUtf(128)));
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 }

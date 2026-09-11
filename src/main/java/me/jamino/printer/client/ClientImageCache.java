@@ -4,19 +4,18 @@ import com.mojang.blaze3d.platform.NativeImage;
 import me.jamino.printer.Config;
 import me.jamino.printer.Printer;
 import me.jamino.printer.network.ModNetworking;
+import me.jamino.printer.network.ImageTransfers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class ClientImageCache {
-    private static final Map<String, Assembly> ASSEMBLIES = new HashMap<>();
+    private static final ImageTransfers ASSEMBLIES = new ImageTransfers();
     private static final Map<String, Long> PENDING = new HashMap<>();
     private static final long RETRY_AFTER_MILLIS = 5_000L;
     private static final LinkedHashMap<String, CachedTexture> TEXTURES = new LinkedHashMap<>(16, 0.75F, true);
@@ -29,8 +28,11 @@ public final class ClientImageCache {
         if (cached != null) return cached.location;
         if (contentId == null || !contentId.matches("[0-9a-f]{64}")) return null;
         long now = System.currentTimeMillis();
+        ASSEMBLIES.expire(now);
+        PENDING.entrySet().removeIf(entry -> now - entry.getValue() >= RETRY_AFTER_MILLIS);
         Long requestedAt = PENDING.get(contentId);
-        if (requestedAt == null || now - requestedAt >= RETRY_AFTER_MILLIS) {
+        if (requestedAt == null && PENDING.size() < 16) {
+            ASSEMBLIES.remove(contentId);
             PENDING.put(contentId, now);
             ModNetworking.requestImage(contentId);
         }
@@ -38,24 +40,13 @@ public final class ClientImageCache {
     }
 
     public static void accept(ModNetworking.ImageChunkPayload payload) {
-        if (!payload.contentId().matches("[0-9a-f]{64}") || payload.total() <= 0 || payload.total() > 32
-                || payload.index() < 0 || payload.index() >= payload.total()) return;
-        Assembly assembly = ASSEMBLIES.computeIfAbsent(payload.contentId(), ignored -> new Assembly(payload.total()));
-        if (assembly.total != payload.total()) {
-            ASSEMBLIES.remove(payload.contentId());
-            PENDING.remove(payload.contentId());
-            return;
-        }
-        assembly.chunks.putIfAbsent(payload.index(), payload.bytes());
-        if (assembly.chunks.size() != assembly.total) return;
-        ASSEMBLIES.remove(payload.contentId());
+        if (!PENDING.containsKey(payload.contentId())) return;
+        byte[] png = ASSEMBLIES.accept(payload.contentId(), payload.index(), payload.total(), payload.bytes(), System.currentTimeMillis());
+        if (png == null) return;
         // Keep a retry deadline during decoding. A failed image must not be
         // requested again every rendered frame and flood the client task queue.
         PENDING.put(payload.contentId(), System.currentTimeMillis());
         try {
-            ByteArrayOutputStream joined = new ByteArrayOutputStream();
-            for (int i = 0; i < assembly.total; i++) joined.write(assembly.chunks.get(i));
-            byte[] png = joined.toByteArray();
             NativeImage image = decodePng(png);
             DynamicTexture texture = new DynamicTexture(image);
             ResourceLocation location = Minecraft.getInstance().getTextureManager()
@@ -69,14 +60,22 @@ public final class ClientImageCache {
             }
             cachedBytes += textureBytes;
             PENDING.remove(payload.contentId());
-            Printer.LOGGER.info("Registered printer image texture {} ({} bytes)", payload.contentId(), png.length);
+            Printer.LOGGER.debug("Registered printer image texture ({} bytes)", png.length);
             evict();
         } catch (Exception exception) {
-            Printer.LOGGER.warn("Failed to decode transferred printer image {}", payload.contentId(), exception);
+            Printer.LOGGER.debug("Failed to decode transferred printer image");
         }
     }
 
     static NativeImage decodePng(byte[] png) throws IOException {
+        // Bound the native allocation before passing the server's PNG to STB.
+        if (png.length < 24 || png.length > ImageTransfers.MAX_BYTES
+                || java.nio.ByteBuffer.wrap(png).getLong() != 0x89504E470D0A1A0AL)
+            throw new IOException("Invalid printer PNG");
+        var header = java.nio.ByteBuffer.wrap(png);
+        int width = header.getInt(16), height = header.getInt(20);
+        if (width < 1 || height < 1 || width > 4096 || height > 4096)
+            throw new IOException("Printer PNG dimensions exceed limits");
         // The byte[] overload copies the whole PNG into LWJGL's tiny native
         // stack. Real photos exceed that stack even at modest resolutions.
         // The stream overload allocates/frees a native heap buffer instead.
@@ -102,12 +101,6 @@ public final class ClientImageCache {
             texture.close();
             iterator.remove();
         }
-    }
-
-    private static final class Assembly {
-        final int total;
-        final Map<Integer, byte[]> chunks = new HashMap<>();
-        Assembly(int total) { this.total = total; }
     }
 
     private record CachedTexture(ResourceLocation location, DynamicTexture texture, long bytes) {

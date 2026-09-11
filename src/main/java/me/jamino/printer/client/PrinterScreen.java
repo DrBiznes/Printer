@@ -19,7 +19,8 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     private static final int CREAM = 0xFFF2E8CB;
     private EditBox url;
     private EditBox titleBox;
-    private PrinterButton smaller, larger, frame, load, print;
+    private PrinterButton smaller, larger, frame, load, print, browse;
+    private final ClientFileUpload upload = new ClientFileUpload(this);
 
     public PrinterScreen(PrinterMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -37,18 +38,21 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         url = field(14, 32, 156, "url", 2048, 0xFFBDE0CD);
         url.setValue(previousUrl);
         url.setTooltip(Tooltip.create(tr("formats")));
-        titleBox = field(14, 55, 92, "title", 64, 0xFFF1D699);
+        titleBox = field(14, 55, 62, "title", 64, 0xFFF1D699);
         titleBox.setValue(previousTitle);
-        load = key(112, 51, 62, 18, tr("load"), 0xFF4E807B,
-                button -> ModNetworking.sendLoad(menu.getPos(), url.getValue().trim(), titleBox.getValue()));
-        smaller = key(154, 91, 18, 18, Component.literal("−"), 0xFF736C59,
+        load = key(80, 51, 44, 18, tr("load"), 0xFF4E807B,
+                button -> { upload.clearStatus(); ModNetworking.sendLoad(menu.getPos(), url.getValue().trim(), titleBox.getValue()); });
+        browse = key(126, 51, 48, 18, tr("browse"), 0xFF4E807B,
+                button -> { if (upload.busy()) upload.cancel(); else upload.select(titleBox.getValue()); });
+        browse.setTooltip(Tooltip.create(tr("browse_help")));
+        smaller = key(154, 91, 18, 18, tr("decrease"), 0xFF736C59,
                 button -> ModNetworking.sendResize(menu.getPos(), -1));
-        larger = key(228, 91, 18, 18, Component.literal("+"), 0xFF736C59,
+        larger = key(228, 91, 18, 18, tr("increase"), 0xFF736C59,
                 button -> ModNetworking.sendResize(menu.getPos(), 1));
         smaller.setTooltip(Tooltip.create(tr("smaller")));
         larger.setTooltip(Tooltip.create(tr("larger")));
         print = key(100, 114, 44, 18, tr("print"), 0xFFAF653F,
-                button -> ModNetworking.sendPrint(menu.getPos()));
+                button -> { upload.clearStatus(); ModNetworking.sendPrint(menu.getPos()); });
         frame = key(154, 114, 92, 18, tr("frame.none"), 0xFF736C59,
                 button -> ModNetworking.sendCycleFrame(menu.getPos(), 1));
         frame.setTooltip(Tooltip.create(tr("frame_help")));
@@ -78,17 +82,26 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     @Override
     protected void containerTick() {
         super.containerTick();
+        upload.tick();
         updateControls();
     }
 
+    public void acceptUpload(ModNetworking.UploadReplyPayload payload) { upload.accept(payload); updateControls(); }
+
+    @Override public void removed() { upload.cancel(); super.removed(); }
+
     private void updateControls() {
         PrinterPreset preset = preset();
-        boolean busy = menu.getPrinter() == null || menu.getPrinter().isPrinting();
+        boolean busy = upload.busy() || menu.getPrinter() == null || menu.getPrinter().isPrinting();
         smaller.active = !busy && preset != null && Math.max(preset.blocksWide(), preset.blocksHigh()) > 1;
         larger.active = !busy && preset != null
                 && Math.max(preset.blocksWide(), preset.blocksHigh()) < Config.SERVER.maxPlacementBlocks.get();
         frame.active = !busy && preset != null;
         frame.setMessage(preset == null ? tr("frame.none") : tr("frame." + preset.frame().getSerializedName()));
+        browse.setMessage(tr(upload.busy() ? "cancel" : "browse"));
+        browse.active = upload.busy() || (!busy && Config.SERVER.allowLocalUploads.get());
+        browse.setTooltip(Tooltip.create(Config.SERVER.allowLocalUploads.get() ? tr("browse_help")
+                : Component.translatable("message.printer.error.upload_disabled")));
         load.active = !busy && !url.getValue().isBlank();
         print.active = !busy && menu.getPrinter().hasPrintingSupplies();
         print.setTooltip(Tooltip.create(tr(preset == null ? "empty" : print.active ? "print_help" : "supplies_help")));
@@ -100,7 +113,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.blit(PANEL, leftPos, topPos, 0, 0, imageWidth, imageHeight, imageWidth, imageHeight);
         if (url.isFocused()) graphics.renderOutline(leftPos + 10, topPos + 27, 164, 20, 0xFF83B8A6);
-        if (titleBox.isFocused()) graphics.renderOutline(leftPos + 10, topPos + 50, 98, 20, 0xFFD3AD68);
+        if (titleBox.isFocused()) graphics.renderOutline(leftPos + 10, topPos + 50, 68, 20, 0xFFD3AD68);
         String[] ghosts = {"paper", "ink", "output"};
         for (int i = 0; i < 3 && menu.getPrinter() != null; i++) {
             var slot = menu.slots.get(i);
@@ -145,7 +158,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.drawString(font, title, 20, 7, CREAM, false);
-        graphics.drawString(font, "P-01 / COLOR", 171, 7, 0xFFB7B7A0, false);
+        graphics.drawString(font, tr("model"), 171, 7, 0xFFB7B7A0, false);
         graphics.drawString(font, tr("source"), 12, 18, 0xFF424C43, false);
         centeredLabel(graphics, tr("preview"), 216, 18, 0xFF424C43);
         graphics.drawString(font, tr("paper_short"), 12, 79, 0xFF424C43, false);
@@ -153,12 +166,12 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         graphics.drawString(font, tr("output_short"), 104, 79, 0xFF424C43, false);
         centeredLabel(graphics, tr("size"), 200, 79, 0xFF424C43);
         PrinterPreset preset = preset();
-        graphics.drawCenteredString(font, preset == null ? Component.literal("—")
-                : Component.literal(preset.blocksWide() + " × " + preset.blocksHigh()), 200, 96, CREAM);
+        graphics.drawCenteredString(font, preset == null ? tr("no_size")
+                : Component.translatable("gui.printer.block_dimensions", preset.blocksWide(), preset.blocksHigh()), 200, 96, CREAM);
         graphics.drawString(font, preset == null ? tr("paper_wait")
                 : Component.translatable("gui.printer.paper_cost", preset.requiredPaper()), 12, 118, 0xFF424C43, false);
         String status = menu.getPrinter() == null ? "gui.printer.empty" : menu.getPrinter().getStatusKey();
-        graphics.drawString(font, font.plainSubstrByWidth(Component.translatable(status).getString(), 230),
+        graphics.drawString(font, font.plainSubstrByWidth((upload.status() == null ? Component.translatable(status) : upload.status()).getString(), 230),
                 12, 134, 0xFFBDE0CD, false);
         graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFF424C43, false);
     }
@@ -195,10 +208,16 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
                 graphics.renderTooltip(font, tr(tips[i]), mouseX, mouseY);
             }
         }
+        if (isHovering(10, 132, 236, 12, mouseX, mouseY)) {
+            Component status = upload.status() != null ? upload.status() : Component.translatable(
+                    menu.getPrinter() == null ? "gui.printer.empty" : menu.getPrinter().getStatusKey());
+            graphics.renderTooltip(font, status, mouseX, mouseY);
+        }
         if (preset() != null && isHovering(188, 27, 56, 50, mouseX, mouseY)) {
             PrinterPreset preset = preset();
-            graphics.renderTooltip(font, Component.literal(preset.title().isBlank() ? "Image" : preset.title())
-                    .append(" · " + preset.sourceWidth() + " × " + preset.sourceHeight()), mouseX, mouseY);
+            graphics.renderTooltip(font, Component.translatable("gui.printer.preview_details",
+                    preset.title().isBlank() ? Component.translatable("item.printer.image.untitled") : Component.literal(preset.title()),
+                    preset.sourceWidth(), preset.sourceHeight()), mouseX, mouseY);
         }
     }
 }

@@ -1,0 +1,31 @@
+{
+  "display": {
+    "icon": {
+      "id": "printer:image"
+    },
+    "title": {
+      "translate": "advancements.printer.load.title"
+    },
+    "description": {
+      "translate": "advancements.printer.load.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "completed": {
+      "trigger": "printer:action",
+      "conditions": {
+        "action": "load"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "completed"
+    ]
+  ],
+  "parent": "printer:root"
+}

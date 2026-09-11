@@ -88,6 +88,7 @@ public final class PrinterBlock extends BaseEntityBlock {
         super.setPlacedBy(level, pos, state, placer, stack);
         if (!level.isClientSide() && level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) {
             printer.restorePresetFromItem(stack);
+            if (placer instanceof Player player) printer.setOwner(player.getUUID());
             printer.updateRedstone(level.hasNeighborSignal(pos));
         }
     }

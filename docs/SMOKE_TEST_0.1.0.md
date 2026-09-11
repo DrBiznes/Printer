@@ -17,15 +17,15 @@ Instance settings and deviations: **pending**
 | Invalid input | Malformed URL, unsupported file, HTML, non-public destination, and blocked host reject with translated messages. | Pending | Pending |
 | Limits | Download over configured byte limit and image over 4096 pixels on an axis reject without allocating the full bitmap; accepted large source scales to configured saved resolution. | Pending | Pending |
 | Manual print | Paper cost matches area; color consumes one charge, monochrome one sac; full output prevents print; first-print advancement fires only on success. | Pending | Pending |
-| Tooltips | Every item with/without Shift; fresh/partially used/depleted cartridges; blank/titled/untitled Images; no frame and material frames; metadata and instructions readable at normal GUI scales. | Pending | Pending |
+| Tooltips | Every item with/without Shift; fresh/partially used/depleted cartridges; blank/titled/untitled Images; Create/AnalogAudio-style summary/condition/behaviour formatting; background color details; no decorative frame data. | Pending | Pending |
 | Hoppers | Ink above, paper at intended side, extraction below/right; invalid sides/items rejected. Repeat in all four horizontal orientations. | Pending | Pending |
 | Redstone | First rising edge prints once, held signal does not repeat, release/reapply prints once more; busy pulses do not queue extra output. | Pending | Pending |
 | Automated advancement | Valid hopper/item-handler supply followed by successful redstone print credits the documented player once; failed/manual prints do not satisfy automation criterion. | Pending | Pending |
-| Preset persistence | Load/title/resize/frame, break/re-place, then print; repeat after save/restart. Preset survives and inventory drops once. | Pending | Pending |
+| Preset persistence | Load/title/resize/background color, break/re-place, then print; repeat after save/restart. Preset survives and inventory drops once; all new output is borderless. | Pending | Pending |
 | Job interruption | Break/re-place or unload while loading/printing; old results do not alter replacement printers. Swap ink during processing; no wrong-mode supply consumption. | Pending | Pending |
-| Placement | Hold Image, ordinary item frame, supported wall and blocked wall; selected frame renders; placing/dropping/reloading preserves metadata; placement advancement works. | Pending | Pending |
+| Placement | Hold Image, ordinary Minecraft item frame, supported wall and blocked wall; wall display has no decorative border; placing/dropping/reloading preserves source, size, mode, and background metadata; placement advancement works. | Pending | Pending |
 | Multiplayer/cache | Second client sees the same image; reconnect and exceed cache budget; evicted images reload without stuck placeholders or request floods. | N/A | Pending |
-| Translation | English keys resolve. Select a different language to test English fallback; use a reviewed translation resource pack when available. No raw translation keys in tips, GUI, messages, advancements. | Pending | Pending |
+| Translation | English keys resolve. Select a different language to test English fallback; use a reviewed translation resource pack when available. No raw translation keys in tips, GUI, messages, advancements, background-color control, or tooltip condition/behaviour lines. | Pending | Pending |
 | Safety/logging | Timeout and storage-full jobs leave machine usable; no sensitive URL text in player messages/logs; packets from invalid or distant menus rejected. | Pending | Pending |
 | Save compatibility | Copy a 0.0.8 test save, load existing printers/items/displays, verify metadata and printing. Do not overwrite the original save. | Pending | Pending |
 

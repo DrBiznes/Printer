@@ -78,7 +78,7 @@ class PrinterTooltipsTest {
             for (PrintFrame frame : PrintFrame.values()) {
                 ItemStack image = new ItemStack(ModItems.IMAGE.get());
                 image.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(
-                        contentId, 320, 160, 4, 2, title, mode, frame));
+                        contentId, 320, 160, 4, 2, title, mode, frame, 3000, 1500));
                 for (boolean expanded : new boolean[]{false, true}) {
                     var tooltip = tooltip(image, expanded);
                     Component displayedTitle = (Component) translated(tooltip, "item.printer.image.title").getArgs()[0];
@@ -92,6 +92,7 @@ class PrinterTooltipsTest {
                     assertEquals(!expanded, has(tooltip, HINT));
                     assertEquals(expanded, has(tooltip, "item.printer.image.dimensions"));
                     if (expanded) {
+                        assertArrayEquals(new Object[]{3000, 1500}, translated(tooltip, "item.printer.image.source").getArgs());
                         assertArrayEquals(new Object[]{320, 160}, translated(tooltip, "item.printer.image.dimensions").getArgs());
                         assertArrayEquals(new Object[]{4, 2}, translated(tooltip, "item.printer.image.blocks").getArgs());
                         Component frameName = (Component) translated(tooltip, "item.printer.image.frame").getArgs()[0];
@@ -104,6 +105,16 @@ class PrinterTooltipsTest {
                 }
             }
         }
+    }
+
+    @Test
+    void legacyPrintedImageUsesUnknownSourceInsteadOfMislabelingTexturePixels() throws Exception {
+        ItemStack image = new ItemStack(ModItems.IMAGE.get());
+        image.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference("a".repeat(64),
+                128, 128, 1, 1, "Old print", PrintMode.COLOR, PrintFrame.NONE));
+        var tooltip = tooltip(image, true);
+        assertHas(tooltip, "item.printer.image.source_unknown");
+        assertFalse(has(tooltip, "item.printer.image.source"));
     }
 
     @Test

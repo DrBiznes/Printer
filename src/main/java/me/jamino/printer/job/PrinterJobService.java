@@ -3,136 +3,175 @@ package me.jamino.printer.job;
 import me.jamino.printer.Config;
 import me.jamino.printer.Printer;
 import me.jamino.printer.block.entity.PrinterBlockEntity;
-import me.jamino.printer.data.ImageReference;
-import me.jamino.printer.data.PrintFrame;
-import me.jamino.printer.data.PrintMode;
-import me.jamino.printer.data.PrinterPreset;
-import me.jamino.printer.image.ImageProcessor;
-import me.jamino.printer.image.ImageSizing;
-import me.jamino.printer.image.ImageStore;
+import me.jamino.printer.data.*;
+import me.jamino.printer.image.*;
 import me.jamino.printer.network.ModNetworking;
-import me.jamino.printer.registry.ModDataComponents;
-import me.jamino.printer.registry.ModItems;
+import me.jamino.printer.registry.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
+import java.util.function.Consumer;
+
+import static me.jamino.printer.image.ImageFailure.Reason.*;
 
 public final class PrinterJobService {
-    private static final ExecutorService IMAGE_EXECUTOR = Executors.newFixedThreadPool(2, runnable -> {
-        Thread thread = new Thread(runnable, "Printer image worker");
-        thread.setDaemon(true);
-        return thread;
-    });
+    public static final RequestThrottle LOAD_THROTTLE = new RequestThrottle();
+    private static ThreadPoolExecutor executor;
 
     private PrinterJobService() {}
 
+    private static ThreadPoolExecutor executor() {
+        if (executor == null) executor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(4), runnable -> {
+                    Thread thread = new Thread(runnable, "Printer image worker");
+                    thread.setDaemon(true);
+                    return thread;
+                }, new ThreadPoolExecutor.AbortPolicy());
+        return executor;
+    }
+
+    public static void shutdown() {
+        if (executor != null) executor.shutdownNow();
+        executor = null;
+        LOAD_THROTTLE.clear();
+    }
+
+    public static boolean acquireLoad(ServerPlayer player) {
+        return LOAD_THROTTLE.acquire(player.getUUID(), System.nanoTime(), TimeUnit.SECONDS.toNanos(2));
+    }
+
     public static void requestLoad(ServerLevel level, BlockPos pos, ServerPlayer player, String url, String title) {
-        if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) || printer.isPrinting()) return;
+        if (!ModNetworking.canUsePrinter(player, pos)) { tell(player, INVALID_MENU); return; }
+        PrinterBlockEntity printer = (PrinterBlockEntity) level.getBlockEntity(pos);
+        if (printer.isPrinting()) { tell(player, BUSY); return; }
         if (url == null || url.length() > 2048 || title == null || title.length() > 64) {
-            fail(printer, player, "Invalid URL or title length");
-            return;
+            tell(player, INVALID_URL); return;
         }
+        if (!acquireLoad(player)) { tell(player, RATE_LIMIT); return; }
+        long job = printer.beginJob("gui.printer.status.loading");
+        submitLoad(level, printer, job, player, title, () -> ImageProcessor.downloadCanonical(url), ignored -> {});
+    }
+
+    public static void requestUploaded(ServerLevel level, PrinterBlockEntity printer, long job,
+                                       ServerPlayer player, String title, byte[] bytes,
+                                       Consumer<ImageFailure.Reason> completion) {
+        if (!printer.isCurrentJob(job)) { completion.accept(CANCELLED); return; }
         printer.setJobState(true, "gui.printer.status.loading");
-        CompletableFuture.supplyAsync(() -> {
-            try { return ImageProcessor.downloadCanonical(url); }
-            catch (Exception exception) { throw new RuntimeException(exception); }
-        }, IMAGE_EXECUTOR).whenComplete((source, error) -> level.getServer().execute(() -> {
-            if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity current)) return;
+        submitLoad(level, printer, job, player, title, () -> ImageProcessor.canonicalize(bytes), completion);
+    }
+
+    private static void submitLoad(ServerLevel level, PrinterBlockEntity printer, long job,
+                                   ServerPlayer player, String title, Callable<ProcessedImage> task,
+                                   Consumer<ImageFailure.Reason> completion) {
+        submit(level, printer, job, task, (source, error) -> {
+            if (!isCurrent(level, printer, job)) { completion.accept(CANCELLED); return; }
+            if (!ModNetworking.canUsePrinter(player, printer.getBlockPos())) {
+                fail(printer, player, INVALID_MENU); completion.accept(INVALID_MENU); return;
+            }
             if (error != null) {
-                Printer.LOGGER.warn("Failed to load printer image from {}", url, error);
-                fail(current, player, readable(error));
-                return;
+                var reason = ImageFailure.classify(error);
+                fail(printer, player, reason); completion.accept(reason); return;
             }
             if (!ImageStore.putSource(level.getServer(), source)) {
-                fail(current, player, "Printer image storage is full");
-                return;
+                fail(printer, player, STORAGE_FULL); completion.accept(STORAGE_FULL); return;
             }
-            int maximumAutoEdge = Math.min(Config.SERVER.autoSizeMaxBlocks.get(),
-                    Config.SERVER.maxPlacementBlocks.get());
+            int maximumAutoEdge = Math.min(Config.SERVER.autoSizeMaxBlocks.get(), Config.SERVER.maxPlacementBlocks.get());
             ImageSizing.Size size = ImageSizing.automatic(source.width(), source.height(), maximumAutoEdge);
-            current.setPreset(new PrinterPreset(source.contentId(), title, source.width(), source.height(),
-                    size.width(), size.height(), PrintFrame.OAK));
-            current.setJobState(false, "gui.printer.status.ready");
+            printer.setPreset(new PrinterPreset(source.contentId(), title, source.width(), source.height(),
+                    size.width(), size.height(), PrintFrame.OAK, source.originalWidth(), source.originalHeight()));
+            if (printer.getOwner() == null) printer.setOwner(player.getUUID());
+            printer.setJobState(false, "gui.printer.status.ready");
+            ModCriteria.ACTION.get().trigger(player, "load");
             player.sendSystemMessage(Component.translatable("message.printer.image_saved",
-                    source.width(), source.height(), size.width(), size.height()));
-        }));
+                    source.originalWidth(), source.originalHeight(), size.width(), size.height()));
+            completion.accept(null);
+        });
+    }
+
+    public static boolean isCurrent(ServerLevel level, PrinterBlockEntity printer, long job) {
+        return printer.isCurrentJob(job) && level.hasChunkAt(printer.getBlockPos())
+                && level.getBlockEntity(printer.getBlockPos()) == printer;
     }
 
     public static void requestResize(ServerLevel level, BlockPos pos, int change) {
         if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) || printer.isPrinting()) return;
         PrinterPreset preset = printer.getPreset().orElse(null);
         if (preset == null || (change != -1 && change != 1)) return;
-        int currentLongEdge = Math.max(preset.blocksWide(), preset.blocksHigh());
-        int maximum = Config.SERVER.maxPlacementBlocks.get();
-        int requestedLongEdge = Math.clamp(currentLongEdge + change, 1, maximum);
-        ImageSizing.Size size = ImageSizing.forLongEdge(preset.sourceWidth(), preset.sourceHeight(), requestedLongEdge);
-        printer.setPreset(new PrinterPreset(preset.sourceId(), preset.title(), preset.sourceWidth(),
-                preset.sourceHeight(), size.width(), size.height(), preset.frame()));
+        int edge = Math.clamp(Math.max(preset.blocksWide(), preset.blocksHigh()) + change, 1, Config.SERVER.maxPlacementBlocks.get());
+        ImageSizing.Size size = ImageSizing.forLongEdge(preset.sourceWidth(), preset.sourceHeight(), edge);
+        printer.setPreset(new PrinterPreset(preset.sourceId(), preset.title(), preset.sourceWidth(), preset.sourceHeight(),
+                size.width(), size.height(), preset.frame(), preset.originalWidth(), preset.originalHeight()));
     }
 
     public static void requestFrame(ServerLevel level, BlockPos pos, int change) {
         if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) || printer.isPrinting()) return;
         PrinterPreset preset = printer.getPreset().orElse(null);
         if (preset == null || (change != -1 && change != 1)) return;
-        printer.setPreset(new PrinterPreset(preset.sourceId(), preset.title(), preset.sourceWidth(),
-                preset.sourceHeight(), preset.blocksWide(), preset.blocksHigh(), preset.frame().next(change)));
+        printer.setPreset(new PrinterPreset(preset.sourceId(), preset.title(), preset.sourceWidth(), preset.sourceHeight(),
+                preset.blocksWide(), preset.blocksHigh(), preset.frame().next(change), preset.originalWidth(), preset.originalHeight()));
     }
 
     public static void requestPrint(ServerLevel level, BlockPos pos, ServerPlayer player) {
+        if (player != null && !ModNetworking.canUsePrinter(player, pos)) { tell(player, INVALID_MENU); return; }
         if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) || printer.isPrinting()) return;
         PrinterPreset preset = printer.getPreset().orElse(null);
-        if (preset == null) { fail(printer, player, "No saved image is configured"); return; }
-        if (!printer.hasPrintingSupplies()) {
-            fail(printer, player, "This print needs " + preset.requiredPaper()
-                    + " paper, ink, and an empty output slot");
-            return;
-        }
+        if (preset == null) { fail(printer, player, NO_IMAGE); return; }
+        if (!printer.hasPrintingSupplies()) { fail(printer, player, NO_SUPPLIES); return; }
         byte[] source = ImageStore.getSource(level.getServer(), preset.sourceId());
-        if (source == null) { fail(printer, player, "Saved image data is unavailable"); return; }
+        if (source == null) { fail(printer, player, MISSING_DATA); return; }
         PrintMode mode = printer.isMonochromeSupply() ? PrintMode.MONOCHROME : PrintMode.COLOR;
-        ImageSizing.PixelSize textureSize = ImageSizing.textureSize(preset.sourceWidth(), preset.sourceHeight(),
+        boolean automated = player == null && printer.hasAutomatedSupplies();
+        ImageSizing.PixelSize size = ImageSizing.textureSize(preset.sourceWidth(), preset.sourceHeight(),
                 preset.blocksWide(), preset.blocksHigh());
-        printer.setJobState(true, "gui.printer.status.printing");
-        CompletableFuture.supplyAsync(() -> {
-            try { return ImageProcessor.createVariant(source, textureSize.width(), textureSize.height(), mode); }
-            catch (Exception exception) { throw new RuntimeException(exception); }
-        }, IMAGE_EXECUTOR).whenComplete((variant, error) -> level.getServer().execute(() -> {
-            if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity current)) return;
-            if (error != null) {
-                Printer.LOGGER.warn("Failed to process saved printer image {}", preset.sourceId(), error);
-                fail(current, player, readable(error));
-                return;
-            }
-            if (!current.hasPrintingSupplies()) { fail(current, player, "Printing supplies changed while the job was running"); return; }
-            if (!ImageStore.putVariant(level.getServer(), variant)) { fail(current, player, "Printer image storage is full"); return; }
+        long job = printer.beginJob("gui.printer.status.printing");
+        submit(level, printer, job, () -> ImageProcessor.createVariant(source, size.width(), size.height(), mode), (variant, error) -> {
+            if (!isCurrent(level, printer, job)) return;
+            if (error != null) { fail(printer, player, ImageFailure.classify(error)); return; }
+            if (!printer.matchesPrint(preset, mode)) { fail(printer, player, SUPPLIES_CHANGED); return; }
+            if (!ImageStore.putVariant(level.getServer(), variant)) { fail(printer, player, STORAGE_FULL); return; }
             ItemStack output = new ItemStack(ModItems.IMAGE.get());
-            output.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(
-                    variant.contentId(), variant.width(), variant.height(), preset.blocksWide(), preset.blocksHigh(),
-                    preset.title(), mode, preset.frame()));
-            current.consumeSupplies();
-            current.setOutput(output);
-            current.setJobState(false, "gui.printer.status.complete");
-            if (player != null) {
-                ModNetworking.sendImage(player, variant.contentId(), variant.png());
+            output.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(variant.contentId(), variant.width(),
+                    variant.height(), preset.blocksWide(), preset.blocksHigh(), preset.title(), mode, preset.frame(),
+                    preset.originalWidth(), preset.originalHeight()));
+            printer.consumeSupplies();
+            printer.setOutput(output);
+            printer.setJobState(false, "gui.printer.status.complete");
+            if (automated) printer.completeAutomatedPrint();
+            if (player != null && !player.hasDisconnected()) {
+                ModCriteria.ACTION.get().trigger(player, "print");
+                if (mode == PrintMode.COLOR) ModCriteria.ACTION.get().trigger(player, "color");
                 player.sendSystemMessage(Component.translatable("message.printer.print_complete"));
             }
-        }));
+        });
     }
 
-    private static void fail(PrinterBlockEntity printer, ServerPlayer player, String message) {
-        printer.setJobState(false, "gui.printer.status.error");
-        if (player != null) player.sendSystemMessage(Component.literal(message));
+    private static void submit(ServerLevel level, PrinterBlockEntity printer, long job, Callable<ProcessedImage> task,
+                               java.util.function.BiConsumer<ProcessedImage, Throwable> completion) {
+        try {
+            CompletableFuture.supplyAsync(() -> {
+                try { return task.call(); }
+                catch (Exception error) { throw new CompletionException(error); }
+            }, executor()).orTimeout(Config.SERVER.fetchTimeoutSeconds.get() + 30L, TimeUnit.SECONDS)
+                    .whenComplete((image, error) -> {
+                        if (!level.getServer().isStopped()) level.getServer().execute(() -> completion.accept(image, error));
+                    });
+        } catch (RejectedExecutionException error) {
+            completion.accept(null, new ImageFailure(BUSY));
+        }
     }
 
-    private static String readable(Throwable throwable) {
-        Throwable cause = throwable;
-        while (cause.getCause() != null) cause = cause.getCause();
-        return cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage();
+    public static void tell(ServerPlayer player, ImageFailure.Reason reason) {
+        if (player != null && !player.hasDisconnected()) player.sendSystemMessage(Component.translatable(reason.key()));
+    }
+
+    private static void fail(PrinterBlockEntity printer, ServerPlayer player, ImageFailure.Reason reason) {
+        printer.cancelJob(reason.key());
+        tell(player, reason);
+        // Never log the URL, server response text, arbitrary filenames, or raw exception chains.
+        Printer.LOGGER.debug("Printer job ended: {}", reason);
     }
 }

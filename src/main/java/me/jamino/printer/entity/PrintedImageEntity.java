@@ -40,6 +40,10 @@ public final class PrintedImageEntity extends HangingEntity {
             PrintedImageEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> BLOCKS_HIGH = SynchedEntityData.defineId(
             PrintedImageEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> SOURCE_WIDTH = SynchedEntityData.defineId(
+            PrintedImageEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> SOURCE_HEIGHT = SynchedEntityData.defineId(
+            PrintedImageEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> MONOCHROME = SynchedEntityData.defineId(
             PrintedImageEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<String> FRAME = SynchedEntityData.defineId(
@@ -64,6 +68,8 @@ public final class PrintedImageEntity extends HangingEntity {
         builder.define(PIXEL_HEIGHT, 128);
         builder.define(BLOCKS_WIDE, 1);
         builder.define(BLOCKS_HIGH, 1);
+        builder.define(SOURCE_WIDTH, 0);
+        builder.define(SOURCE_HEIGHT, 0);
         builder.define(MONOCHROME, false);
         builder.define(FRAME, PrintFrame.NONE.getSerializedName());
     }
@@ -77,6 +83,8 @@ public final class PrintedImageEntity extends HangingEntity {
     public void setReference(ImageReference reference) {
         entityData.set(CONTENT_ID, reference.contentId());
         entityData.set(TITLE, reference.title());
+        entityData.set(SOURCE_WIDTH, reference.sourceWidth());
+        entityData.set(SOURCE_HEIGHT, reference.sourceHeight());
         entityData.set(PIXEL_WIDTH, reference.pixelWidth());
         entityData.set(PIXEL_HEIGHT, reference.pixelHeight());
         entityData.set(BLOCKS_WIDE, reference.blocksWide());
@@ -91,7 +99,7 @@ public final class PrintedImageEntity extends HangingEntity {
                 entityData.get(PIXEL_HEIGHT), entityData.get(BLOCKS_WIDE), entityData.get(BLOCKS_HIGH),
                 entityData.get(TITLE),
                 entityData.get(MONOCHROME) ? PrintMode.MONOCHROME : PrintMode.COLOR,
-                PrintFrame.byName(entityData.get(FRAME)));
+                PrintFrame.byName(entityData.get(FRAME)), entityData.get(SOURCE_WIDTH), entityData.get(SOURCE_HEIGHT));
     }
 
     public int blocksWide() { return getReference().blocksWide(); }
@@ -116,6 +124,8 @@ public final class PrintedImageEntity extends HangingEntity {
         ImageReference reference = getReference();
         tag.putString("ContentId", reference.contentId());
         tag.putString("Title", reference.title());
+        tag.putInt("SourceWidth", reference.sourceWidth());
+        tag.putInt("SourceHeight", reference.sourceHeight());
         tag.putInt("PixelWidth", reference.pixelWidth());
         tag.putInt("PixelHeight", reference.pixelHeight());
         tag.putInt("BlocksWide", reference.blocksWide());
@@ -132,7 +142,7 @@ public final class PrintedImageEntity extends HangingEntity {
                 tag.getInt("PixelHeight"), tag.getInt("BlocksWide"), tag.getInt("BlocksHigh"),
                 tag.getString("Title"),
                 tag.getBoolean("Monochrome") ? PrintMode.MONOCHROME : PrintMode.COLOR,
-                PrintFrame.byName(tag.getString("Frame"))));
+                PrintFrame.byName(tag.getString("Frame")), tag.getInt("SourceWidth"), tag.getInt("SourceHeight")));
         direction = Direction.from2DDataValue(tag.getByte("Facing"));
         super.readAdditionalSaveData(tag);
         setDirection(direction);

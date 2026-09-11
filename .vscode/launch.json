@@ -62,7 +62,7 @@
         "@C:\\hackerman\\Printer\\build\\moddev\\gameTestServerRunVmArgs.txt",
         "-Dfml.modFolders\u003dprinter%%C:\\hackerman\\Printer\\bin\\main"
       ],
-      "cwd": "${workspaceFolder}\\run",
+      "cwd": "${workspaceFolder}\\build\\gametest-run",
       "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"

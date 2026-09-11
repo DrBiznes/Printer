@@ -51,6 +51,29 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
 
     private PrinterPreset preset;
     private boolean printing;
+    private long jobGeneration;
+    private java.util.UUID owner;
+    private boolean automatedPaper, automatedInk, pendingAutomationAward;
+
+    public void setOwner(java.util.UUID owner) { this.owner = owner; setChanged(); }
+    public java.util.UUID getOwner() { return owner; }
+    public boolean hasAutomatedSupplies() { return automatedPaper || automatedInk; }
+    public void completeAutomatedPrint() { pendingAutomationAward = true; setChanged(); }
+
+    public long beginJob(String status) {
+        jobGeneration++;
+        setJobState(true, status);
+        return jobGeneration;
+    }
+    public boolean isCurrentJob(long generation) { return printing && !isRemoved() && jobGeneration == generation; }
+    public void cancelJob(String status) { jobGeneration++; setJobState(false, status); }
+
+    @Override public void setRemoved() {
+        jobGeneration++;
+        printing = false;
+        super.setRemoved();
+    }
+
     private boolean powered;
     private int progress;
     private String statusKey = "gui.printer.status.idle";
@@ -60,6 +83,14 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, PrinterBlockEntity printer) {
+        if (printer.pendingAutomationAward && printer.owner != null && level instanceof ServerLevel serverLevel) {
+            var player = serverLevel.getServer().getPlayerList().getPlayer(printer.owner);
+            if (player != null) {
+                me.jamino.printer.registry.ModCriteria.ACTION.get().trigger(player, "automate");
+                printer.pendingAutomationAward = false;
+                printer.setChanged();
+            }
+        }
         if (printer.printing) {
             printer.progress++;
             if ((printer.progress & 7) == 0) {
@@ -133,11 +164,19 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     public boolean hasPrintingSupplies() {
         return preset != null && items.get(PAPER_SLOT).is(Items.PAPER)
                 && items.get(PAPER_SLOT).getCount() >= preset.requiredPaper()
-                && (items.get(INK_SLOT).is(Items.INK_SAC) || items.get(INK_SLOT).is(ModItems.COLOR_CARTRIDGE.get()))
+                && (items.get(INK_SLOT).is(Items.INK_SAC) || (items.get(INK_SLOT).is(ModItems.COLOR_CARTRIDGE.get())
+                    && items.get(INK_SLOT).getDamageValue() < items.get(INK_SLOT).getMaxDamage()))
                 && items.get(OUTPUT_SLOT).isEmpty();
     }
 
+    public boolean matchesPrint(PrinterPreset expected, me.jamino.printer.data.PrintMode mode) {
+        return java.util.Objects.equals(preset, expected) && hasPrintingSupplies()
+                && isMonochromeSupply() == (mode == me.jamino.printer.data.PrintMode.MONOCHROME);
+    }
+
     public void consumeSupplies() {
+        automatedPaper = false;
+        automatedInk = false;
         if (preset == null) return;
         items.get(PAPER_SLOT).shrink(preset.requiredPaper());
         ItemStack ink = items.get(INK_SLOT);
@@ -178,7 +217,13 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
             tag.putInt("PresetBlocksWide", preset.blocksWide());
             tag.putInt("PresetBlocksHigh", preset.blocksHigh());
             tag.putString("PresetFrame", preset.frame().getSerializedName());
+            tag.putInt("PresetOriginalWidth", preset.originalWidth());
+            tag.putInt("PresetOriginalHeight", preset.originalHeight());
         }
+        if (owner != null) tag.putUUID("Owner", owner);
+        tag.putBoolean("AutomatedPaper", automatedPaper);
+        tag.putBoolean("AutomatedInk", automatedInk);
+        tag.putBoolean("PendingAutomationAward", pendingAutomationAward);
         tag.putBoolean("Powered", powered);
         tag.putString("Status", printing ? "gui.printer.status.interrupted" : statusKey);
     }
@@ -195,13 +240,20 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
             preset = new PrinterPreset(tag.getString("PresetSource"), tag.getString("PresetTitle"),
                     tag.getInt("PresetSourceWidth"), tag.getInt("PresetSourceHeight"),
                     tag.getInt("PresetBlocksWide"), tag.getInt("PresetBlocksHigh"),
-                    PrintFrame.byName(tag.getString("PresetFrame")));
+                    PrintFrame.byName(tag.getString("PresetFrame")),
+                    tag.getInt("PresetOriginalWidth"), tag.getInt("PresetOriginalHeight"));
         } else {
             preset = null;
         }
+        owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+        automatedPaper = tag.getBoolean("AutomatedPaper");
+        automatedInk = tag.getBoolean("AutomatedInk");
+        pendingAutomationAward = tag.getBoolean("PendingAutomationAward");
         powered = tag.getBoolean("Powered");
-        printing = false;
-        progress = 0;
+        jobGeneration++;
+        // Only synchronization tags contain these fields. Disk saves resume idle after interruption.
+        printing = tag.getBoolean("ActiveJob");
+        progress = tag.getInt("Progress");
         statusKey = tag.contains("Status") ? tag.getString("Status") : "gui.printer.status.idle";
     }
 
@@ -209,6 +261,9 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = super.getUpdateTag(registries);
         saveAdditional(tag, registries);
+        tag.putBoolean("ActiveJob", printing);
+        tag.putInt("Progress", progress);
+        tag.putString("Status", statusKey);
         return tag;
     }
 
@@ -237,6 +292,8 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
         tag.remove("PresetBlocksWide");
         tag.remove("PresetBlocksHigh");
         tag.remove("PresetFrame");
+        tag.remove("PresetOriginalWidth");
+        tag.remove("PresetOriginalHeight");
     }
 
     @Override
@@ -252,15 +309,22 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     @Override public int getContainerSize() { return items.size(); }
     @Override public boolean isEmpty() { return items.stream().allMatch(ItemStack::isEmpty); }
     @Override public ItemStack getItem(int slot) { return items.get(slot); }
+    private void clearAutomation(int slot) {
+        if (slot == PAPER_SLOT) automatedPaper = false;
+        if (slot == INK_SLOT) automatedInk = false;
+    }
     @Override public ItemStack removeItem(int slot, int amount) {
+        clearAutomation(slot);
         ItemStack result = net.minecraft.world.ContainerHelper.removeItem(items, slot, amount);
         if (!result.isEmpty()) setChangedAndSync();
         return result;
     }
     @Override public ItemStack removeItemNoUpdate(int slot) {
+        clearAutomation(slot);
         return net.minecraft.world.ContainerHelper.takeItem(items, slot);
     }
     @Override public void setItem(int slot, ItemStack stack) {
+        clearAutomation(slot);
         items.set(slot, stack);
         if (stack.getCount() > getMaxStackSize(stack)) stack.setCount(getMaxStackSize(stack));
         setChangedAndSync();
@@ -270,7 +334,7 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
                 && player.distanceToSqr(worldPosition.getX() + 0.5, worldPosition.getY() + 0.5,
                 worldPosition.getZ() + 0.5) <= 64.0;
     }
-    @Override public void clearContent() { items.clear(); setChangedAndSync(); }
+    @Override public void clearContent() { automatedPaper = false; automatedInk = false; items.clear(); setChangedAndSync(); }
     @Override public boolean canPlaceItem(int slot, ItemStack stack) {
         return !printing && switch (slot) {
             case PAPER_SLOT -> stack.is(Items.PAPER);
@@ -315,6 +379,9 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
             if (!simulate) {
                 if (existing.isEmpty()) setItem(slot, stack.copyWithCount(accepted));
                 else { existing.grow(accepted); setChangedAndSync(); }
+                if (slot == PAPER_SLOT) automatedPaper = true;
+                if (slot == INK_SLOT) automatedInk = true;
+                setChanged();
             }
             return stack.copyWithCount(stack.getCount() - accepted);
         }

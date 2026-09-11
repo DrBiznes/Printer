@@ -1,0 +1,35 @@
+{
+  "display": {
+    "icon": {
+      "id": "printer:printer"
+    },
+    "title": {
+      "translate": "advancements.printer.root.title"
+    },
+    "description": {
+      "translate": "advancements.printer.root.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false,
+    "background": "minecraft:textures/block/stripped_oak_log.png"
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "printer:printer"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "obtained"
+    ]
+  ]
+}

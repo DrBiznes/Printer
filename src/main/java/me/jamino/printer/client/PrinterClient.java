@@ -17,6 +17,9 @@ public final class PrinterClient {
 
     public static void registerScreens(RegisterMenuScreensEvent event) {
         ModNetworking.CLIENT_IMAGE_CHUNK_HANDLER = ClientImageCache::accept;
+        ModNetworking.CLIENT_UPLOAD_REPLY_HANDLER = payload -> {
+            if (net.minecraft.client.Minecraft.getInstance().screen instanceof PrinterScreen screen) screen.acceptUpload(payload);
+        };
         event.register(ModMenus.PRINTER.get(), PrinterScreen::new);
     }
 
