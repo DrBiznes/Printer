@@ -4,7 +4,16 @@
 
 Ship 0.1.0 as a coherent first public release of Printer: a player can discover the mod, craft it, load and print an image, understand every item without opening a wiki, automate the machine with vanilla components, and play with it in a non-English language once a translation is available.
 
-The 0.1.0 release should prioritize a small, polished gameplay loop over a large compatibility surface. Ponder integration is a long-term goal and is intentionally not a release blocker.
+The 0.1.0 release should prioritize a small, polished gameplay loop over a large compatibility surface. Because Printer has not been released yet, 0.1.0 may make breaking save/item/data changes without compatibility shims. Ponder integration is a long-term goal and is intentionally not a release blocker.
+
+## Compatibility policy for 0.1.0
+
+0.1.0 is a clean break before the first public release. We do not need to preserve compatibility with development-world saves, pre-0.1.0 Printer items, or the current frame metadata. The 0.1.0 release requires new worlds.
+
+- [ ] Remove compatibility and migration code for old Image/background/frame metadata rather than adding fallback paths.
+- [ ] Make the new background color a native part of the 0.1.0 preset and Image data model, with one defined default color.
+- [ ] Ensure the release documentation clearly warns that existing development worlds and old Printer items are unsupported.
+- [ ] Smoke-test only fresh 0.1.0 worlds and the exact 0.1.0 client/server artifact.
 
 ## Current baseline — 0.0.10
 
@@ -19,7 +28,7 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 
 - The first-release scope and exact implementation limits are documented in [docs/RELEASE_0.1.0.md](docs/RELEASE_0.1.0.md).
 - The dedicated Printer creative tab, all-item collapsed/Shift-expanded tooltips, source metadata, advancements, translation workflow, and local upload are implemented and covered by tests.
-- Server packet menu-validity checks, upload validation, image transfer integrity, and legacy metadata handling are implemented.
+- Server packet menu-validity checks, upload validation, and image transfer integrity are implemented.
 - Verification recorded for the 0.0.10 preparation work: `gradlew.bat build --offline` passes with 39 tests and zero failures. This is automated verification only; fresh client and dedicated-server gameplay checks remain pending.
 - The only new feature work required for the final pass is frame removal, selectable background fill color, Create/AnalogAudio-style tooltip formatting, texture cleanup, and GUI polish.
 
@@ -50,19 +59,19 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 - [x] Make all player-facing strings translation-ready. Audit Java literals, GUI labels, tooltip lines, status/error messages, advancement titles/descriptions, and item/block names for missing translation keys.
 - [x] Choose and ship at least one additional language, or explicitly mark the translation contribution workflow as the 0.1.0 community-ready deliverable if no target language is available yet. Selected the [reviewed contribution workflow](docs/TRANSLATING.md); no unreviewed machine translations.
 - [x] Add regression coverage for advancement triggers, creative-tab contents, tooltip states, upload protocol validation, image transfer integrity, metadata round trips, and local file reads.
-- [ ] Remove the frame selector and make all new prints use `PrintFrame.NONE`. Preserve old save/item/network decoding long enough to normalize legacy frame values to `NONE`, then remove unused frame rendering and active frame-selection paths.
-- [ ] Add a selectable background fill color with white as the default. Prefer a compact in-GUI palette for 0.1.0; persist the selected 24-bit color in the preset and Image metadata, carry it through save/drop/network paths, and include it in variant generation/deduplication.
-- [ ] Preserve transparency until the selected background is applied during canonical/variant processing. Existing stored white-composited sources must continue loading with white as their compatibility default.
+- [ ] Remove the frame selector and make all 0.1.0 prints use `PrintFrame.NONE`. Delete old frame compatibility/migration paths; pre-0.1.0 frame-bearing saves and items do not need to load.
+- [ ] Add a selectable background fill color with white as the default. Prefer a compact in-GUI palette for 0.1.0; persist the selected 24-bit color in the new preset and Image metadata, carry it through save/drop/network paths, and include it in variant generation/deduplication.
+- [ ] Preserve transparency until the selected background is applied during canonical/variant processing. No fallback conversion is needed for old white-composited sources because 0.1.0 requires new worlds.
 - [ ] Run a release smoke test in a fresh instance on both client and dedicated server:
   - manual URL load and print;
   - invalid/oversized image rejection;
   - hopper input/output;
   - one redstone rising edge per print;
-  - block break/re-place with the saved preset;
+  - block break/re-place with the saved preset in a fresh 0.1.0 world;
   - item-frame and wall placement;
   - tooltip with and without Shift, using the final Create/AnalogAudio-style formatting;
   - default and non-white background colors, including transparent source pixels;
-  - no frame selector, no rendered decorative border, and legacy saved data normalized safely;
+  - no frame selector, no rendered decorative border, and no compatibility path for legacy saved data;
   - translated text loading.
 - [ ] Update README, CHANGELOG, credits/license notes, mod metadata, and the release artifact version to 0.1.0.
 
@@ -91,7 +100,7 @@ Exit criteria: the scope is frozen, known limitations are documented, and every 
 
 ### Phase 2 — Player-facing polish
 
-Complete frame removal, selectable background color, Create/AnalogAudio-style tooltip formatting, the 16×16 Image texture redesign, and final GUI polish. The creative tab, item tooltip behavior, translation audit, advancements, upload flow, and automated regression coverage are already complete.
+Complete frame removal, selectable background color, Create/AnalogAudio-style tooltip formatting, the 16×16 Image texture redesign, and final GUI polish. The creative tab, item tooltip behavior, translation audit, advancements, upload flow, and automated regression coverage are already complete. Since 0.1.0 is unreleased, implement the new data model directly and do not add compatibility code for development builds.
 
 Exit criteria: a new player can find the mod in Creative, understand all three items from consistently formatted tooltips, choose a background color, print a borderless Image, and follow the advancement tree through a first successful print.
 
@@ -110,9 +119,9 @@ Recommended safeguards:
 
 Exit criteria: the implemented local-file path passes single-player and dedicated-server testing, and every failure mode produces a translated, actionable message.
 
-### Phase 4 — Compatibility and release hardening
+### Phase 4 — Release hardening
 
-Test vanilla automation against the documented sides and slots, verify redstone edge behavior, test multiplayer image delivery and cache eviction, and audit save/load compatibility. Review logs for noisy or sensitive output, especially around URLs, upload failures, and image identifiers.
+Test vanilla automation against the documented sides and slots, verify redstone edge behavior, test multiplayer image delivery and cache eviction, and verify the new 0.1.0 data model in fresh worlds. Do not spend release time on old-save migration or compatibility shims. Review logs for noisy or sensitive output, especially around URLs, upload failures, and image identifiers.
 
 Exit criteria: clean build, passing tests, fresh-instance smoke test, no known P0 bugs, and release documentation ready.
 
@@ -143,8 +152,9 @@ Ponder exit criteria: after 0.1.0, a player can open the guide from the Printer,
 - The blank Image texture is unmistakably intentional 16×16 pixel art.
 - Creative inventory, refined tooltips for every item, Shift-expanded details, advancements, and GUI strings are complete and translated according to the release decision.
 - Vanilla hopper and redstone automation remains reliable and documented.
-- Local upload is shipped with server-side safeguards and tests; the remaining release gate is texture polish and clean-instance verification.
+- Local upload is shipped with server-side safeguards and tests; the remaining release gates are the new no-frame/background data model, texture/GUI polish, and clean-instance verification.
 - Build, automated tests, and clean-instance smoke tests pass on the supported environment.
+- 0.1.0 requires new worlds; compatibility code for pre-release Image/frame data is intentionally out of scope.
 - Full Ponder scenes are tracked as the next documentation milestone, not a 0.1.0 release dependency.
 
 ## Reference projects

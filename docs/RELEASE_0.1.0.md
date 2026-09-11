@@ -1,6 +1,10 @@
 # Printer 0.1.0 release contract
 
-Status: 0.0.10 implementation is complete for the original feature set. The final 0.1.0 scope adds frame removal, selectable background fill color, tooltip formatting polish, final texture/GUI polish, and clean-instance release verification. This is not yet a release sign-off.
+Status: 0.0.10 implementation is complete for the original feature set. The final 0.1.0 scope adds frame removal, selectable background fill color, tooltip formatting polish, final texture/GUI polish, and clean-instance release verification. 0.1.0 is an intentional pre-release breaking change and requires new worlds. This is not yet a release sign-off.
+
+## Compatibility policy
+
+Printer has not had a public release yet, so 0.1.0 does not carry compatibility or migration code for development builds. Existing development worlds, old Printer items, and old Image/frame metadata are unsupported. Start a new world when testing or playing 0.1.0.
 
 ## Supported environment
 
@@ -27,7 +31,7 @@ Status: 0.0.10 implementation is complete for the original feature set. The fina
 | Supplies | One paper per occupied block and one cartridge charge (color) or ink sac (monochrome) per successful print. A fresh cartridge has three charges. |
 | Output | One Image item; output slot must be empty. Supplies are consumed when the job succeeds. |
 | Placement | Supported vertical wall with enough clearance, or ordinary Minecraft item frame. Printed wall displays always use no decorative border. Unprinted creative Image stacks cannot make wall displays. |
-| Preset | Saved source, title, size, and background color persist on the block and on the dropped Printer item. New and normalized legacy presets always use no decorative border. Image data remains in the originating world's save. |
+| Preset | Saved source, title, size, and background color persist on the block and on the dropped Printer item. All 0.1.0 presets use no decorative border. Image data remains in the originating world's save. |
 | Display cache | Requested images are sent in chunks of at most 256 KiB. The client verifies the content hash, expires incomplete transfers, and bounds in-flight assembly. Texture LRU budget defaults to 128 MiB, configurable from 16–1024 MiB. |
 
 Local uploads use a 24 KiB client-to-server chunk protocol, one active transfer per player, a 64 MiB transfer ceiling, a 120-second deadline, cancellation/disconnect cleanup, and the server's existing decode, dimension, storage, and request limits. The server never receives or reads a client filesystem path.
@@ -57,14 +61,14 @@ The 0.0.10 implementation addressed the initial audit items:
 2. **Errors and logging:** implemented with translated categories and sanitized debug logging.
 3. **Download hardening:** implemented with the validated Apache resolver, public-address checks, redirect/body deadlines, bounded workers, and shared URL/upload throttling.
 - Request-validity checks now verify the open, nearby menu on server-bound actions.
-- Printed Images carry backward-compatible source-dimension metadata through placement/drop/save/network round trips.
+- Printed Images carry source-dimension metadata through placement/drop/save/network round trips; this is part of the new 0.1.0 data model, not a promise to load older development items.
 - The version and mappings are aligned to Minecraft 1.21.1 / NeoForge 21.1.248 for the current preparation build.
 - Advancements, translation-key coverage, local upload, automated tests, and regression coverage are implemented.
 
 ## Remaining 0.1.0 implementation gates
 
-1. **Frame simplification:** remove the frame selector and active decorative-border rendering. New prints must use `PrintFrame.NONE`; old serialized values must decode safely and normalize to no frame.
-2. **Background color:** add a compact in-GUI palette, defaulting to white. Persist the selected color in presets and Image metadata, apply it to transparent/empty pixels during variant generation, and include it in variant identity/deduplication.
+1. **Frame simplification:** remove the frame selector and active decorative-border rendering. All 0.1.0 prints must use `PrintFrame.NONE`; no old frame decoding or migration path is required.
+2. **Background color:** add a compact in-GUI palette, defaulting to white. Persist the selected color in the new 0.1.0 preset and Image metadata, apply it to transparent/empty pixels during variant generation, and include it in variant identity/deduplication. No old metadata fallback is required.
 3. **Tooltip presentation:** migrate the existing all-item tooltips to the Create/AnalogAudio-style summary, condition, and behaviour key structure, including translated emphasis and final no-frame/background details.
 4. **Art and GUI:** replace the rounded Image placeholder with simple 16×16 pixel art and replace the frame button with the background-color control.
 5. **Release verification:** run the full client/dedicated-server smoke matrix against the exact 0.1.0 artifact.

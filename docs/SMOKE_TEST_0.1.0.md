@@ -23,11 +23,11 @@ Instance settings and deviations: **pending**
 | Automated advancement | Valid hopper/item-handler supply followed by successful redstone print credits the documented player once; failed/manual prints do not satisfy automation criterion. | Pending | Pending |
 | Preset persistence | Load/title/resize/background color, break/re-place, then print; repeat after save/restart. Preset survives and inventory drops once; all new output is borderless. | Pending | Pending |
 | Job interruption | Break/re-place or unload while loading/printing; old results do not alter replacement printers. Swap ink during processing; no wrong-mode supply consumption. | Pending | Pending |
-| Placement | Hold Image, ordinary Minecraft item frame, supported wall and blocked wall; wall display has no decorative border; placing/dropping/reloading preserves source, size, mode, and background metadata; placement advancement works. | Pending | Pending |
+| Placement | Hold Image, ordinary Minecraft item frame, supported wall and blocked wall; wall display has no decorative border; placing/dropping/reloading within a fresh 0.1.0 world preserves source, size, mode, and background metadata; placement advancement works. | Pending | Pending |
 | Multiplayer/cache | Second client sees the same image; reconnect and exceed cache budget; evicted images reload without stuck placeholders or request floods. | N/A | Pending |
 | Translation | English keys resolve. Select a different language to test English fallback; use a reviewed translation resource pack when available. No raw translation keys in tips, GUI, messages, advancements, background-color control, or tooltip condition/behaviour lines. | Pending | Pending |
 | Safety/logging | Timeout and storage-full jobs leave machine usable; no sensitive URL text in player messages/logs; packets from invalid or distant menus rejected. | Pending | Pending |
-| Save compatibility | Copy a 0.0.8 test save, load existing printers/items/displays, verify metadata and printing. Do not overwrite the original save. | Pending | Pending |
+| Fresh-world requirement | Start a new 0.1.0 world; confirm the release documentation clearly states that pre-0.1.0 development worlds and items are unsupported. No old-save migration test is required. | Pending | Pending |
 
 Automated verification: `./gradlew.bat build`; retain test reports with the candidate checksum. The final version bump, fresh-instance runs, and publication remain blocked until all required rows pass or a failing feature is explicitly removed from the release contract.
 

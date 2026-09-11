@@ -22,6 +22,8 @@ The control panel includes a live image preview, recessed green URL and amber ti
 
 Animated WebP/GIF files and multipage TIFF/ICO files use their first image. Transparency is printed against the selected background color, which defaults to white. The bundled TwelveMonkeys readers run in pure Java, including on dedicated servers; players do not need an extra codec mod. AVIF, HEIC, and SVG input are not supported. Missing or generic binary HTTP content types are allowed only when the file bytes decode as a supported image.
 
+Version 0.1.0 is the first public release and intentionally allows breaking changes during development. It requires new worlds; pre-0.1.0 development worlds and old Printer/Image items are not supported.
+
 ## Automation
 
 Automation uses NeoForge's standard item-handler capability, so vanilla hoppers and compatible modded pipes, funnels, chutes, and belts can interact without a hard Create dependency.
