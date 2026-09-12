@@ -52,7 +52,7 @@ Directions are relative to the printer's facing property, as implemented in `Pri
 
 ## Discovery and localization
 
-The Printer creative tab orders Printer, Color Cartridge, then Image, using a Printer icon. These items are removed from the vanilla Functional Blocks insertion. Tooltips provide a short summary and translated Shift hint, with expanded workflow, automation, supplies, placement, and background-color details using the Create/AnalogAudio summary/condition/behaviour presentation style.
+The Printer creative tab orders Printer, Color Cartridge, then Image, using a Printer icon. These items are removed from the vanilla Functional Blocks insertion. Tooltips provide translated titles or summaries, a block size for printed Images, a Shift hint, and expanded workflow, automation, supplies, placement, and background-color details using the Create/AnalogAudio condition/behaviour presentation style.
 
 The shipped language is English. A documented, reviewable translation contribution workflow is the 0.1.0 community-ready deliverable permitted by the project plan; see [TRANSLATING.md](TRANSLATING.md). No unreviewed machine translation will be shipped. Every built-in message must still be translatable before release, even if English is the only bundled language.
 
@@ -72,7 +72,7 @@ The 0.0.10 implementation addressed the initial audit items:
 
 1. **Frame simplification:** the selector, `PrintFrame` enum, frame metadata codecs, legacy lookup/cycling, and decorative-border renderer are deleted. All new prints are unconditionally borderless.
 2. **Background color:** a texture-independent two-row, 16-swatch in-GUI palette replaces the frame button. The selected RGB value persists through saves, dropped Printer items, Image components, placed/dropped entities, and networks. Canonical sources retain transparency; final variant content incorporates the selected background and remains SHA-256 verified.
-3. **Tooltip presentation:** every item uses translated `tooltip.summary`, `tooltip.conditionN`, and `tooltip.behaviourN` keys. Summaries remain visible; Shift reveals gold condition headings and gray behaviours. Image metadata reports background color and never frame data, source URLs, or internal IDs. The common keyboard bridge remains dedicated-server safe.
+3. **Tooltip presentation:** every item uses translated summary, condition, and behaviour keys where applicable. Printed Images show their title and block size without Shift; Shift reveals gold condition headings and gray metadata/behaviour lines. Image metadata reports background color and never frame data, source URLs, or internal IDs. The common keyboard bridge remains dedicated-server safe.
 4. **Packaging:** candidate metadata is 0.1.0, with the existing author edit retained. README recipes/support expectations, changelog, credits, translation instructions, and packaged MIT/third-party license notes are updated.
 
 ## Remaining release gates

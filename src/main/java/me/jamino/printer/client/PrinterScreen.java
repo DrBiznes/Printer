@@ -19,7 +19,6 @@ import net.minecraft.world.item.DyeColor;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     private static final ResourceLocation PANEL = Printer.id("textures/gui/printer.png");
@@ -70,7 +69,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
             DyeColor dye = palette[i];
             int color = dye == DyeColor.WHITE ? ImageReference.DEFAULT_BACKGROUND_COLOR : dye.getFireworkColor();
             Component label = Component.translatable("gui.printer.background_option",
-                    Component.translatable("color.minecraft." + dye.getName()), String.format(Locale.ROOT, "#%06X", color));
+                    Component.translatable("color.minecraft." + dye.getName()));
             var swatch = addRenderableWidget(new PrinterColorButton(leftPos + 159 + i % 8 * 11,
                     topPos + 114 + i / 8 * 9, color, label,
                     () -> preset() != null && preset().backgroundColor() == color,

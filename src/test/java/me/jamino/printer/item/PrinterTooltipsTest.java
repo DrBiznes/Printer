@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.TooltipFlag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,6 @@ class PrinterTooltipsTest {
     void blankImageExplainsThatItCannotBePlaced(boolean expanded) throws Exception {
         var tooltip = tooltip(new ItemStack(ModItems.IMAGE.get()), expanded);
         assertHas(tooltip, "item.printer.image.unprinted");
-        assertHas(tooltip, "item.printer.image.tooltip.summary");
         assertFalse(has(tooltip, "item.printer.image.tooltip.behaviour3"));
         assertEquals(expanded, has(tooltip, "item.printer.image.tooltip.condition1"));
         assertEquals(expanded, has(tooltip, "item.printer.image.tooltip.behaviour1"));
@@ -73,7 +73,7 @@ class PrinterTooltipsTest {
     void printedImageHasTitleAndPlacementWithAccurateExpandedMetadata(String title) throws Exception {
         String contentId = "ab".repeat(32);
         for (PrintMode mode : PrintMode.values()) {
-            for (int background : new int[]{0xFFFFFF, 0x000000, 0x224466}) {
+            for (int background : new int[]{0xFFFFFF, DyeColor.RED.getFireworkColor(), DyeColor.BLUE.getFireworkColor(), 0x224466}) {
                 ItemStack image = new ItemStack(ModItems.IMAGE.get());
                 image.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(
                         contentId, 320, 160, 4, 2, title, mode, background, 3000, 1500));
@@ -86,15 +86,23 @@ class PrinterTooltipsTest {
                     } else {
                         assertEquals(title, displayedTitle.getString());
                     }
-                    assertHas(tooltip, "item.printer.image.tooltip.summary");
+                    assertFalse(has(tooltip, "item.printer.image.tooltip.summary"));
                     assertEquals(!expanded, has(tooltip, HINT));
-                    assertEquals(expanded, has(tooltip, "item.printer.image.tooltip.behaviour3"));
+                    assertHas(tooltip, "item.printer.image.tooltip.behaviour4");
+                    assertArrayEquals(new Object[]{4, 2}, translated(tooltip, "item.printer.image.tooltip.behaviour4").getArgs());
                     if (expanded) {
                         assertArrayEquals(new Object[]{3000, 1500}, translated(tooltip, "item.printer.image.tooltip.behaviour2").getArgs());
                         assertArrayEquals(new Object[]{320, 160}, translated(tooltip, "item.printer.image.tooltip.behaviour3").getArgs());
-                        assertArrayEquals(new Object[]{4, 2}, translated(tooltip, "item.printer.image.tooltip.behaviour4").getArgs());
-                        assertArrayEquals(new Object[]{String.format(java.util.Locale.ROOT, "#%06X", background)},
-                                translated(tooltip, "item.printer.image.tooltip.behaviour5").getArgs());
+                        Component backgroundName = (Component) translated(tooltip,
+                                "item.printer.image.tooltip.behaviour5").getArgs()[0];
+                        String expectedBackgroundKey = background == 0xFFFFFF ? "color.minecraft.white"
+                                        : background == DyeColor.RED.getFireworkColor() ? "color.minecraft.red"
+                                        : background == DyeColor.BLUE.getFireworkColor() ? "color.minecraft.blue"
+                                        : "item.printer.image.background.custom";
+                        assertEquals(expectedBackgroundKey,
+                                ((TranslatableContents) backgroundName.getContents()).getKey());
+                        assertFalse(tooltip.toString().matches(".*#[0-9A-Fa-f]{6}.*"),
+                                "Background hex codes must not appear in Image tooltips");
                         Component modeName = (Component) translated(tooltip, "item.printer.image.tooltip.behaviour6").getArgs()[0];
                         assertEquals("gui.printer.mode." + mode.getSerializedName(),
                                 ((TranslatableContents) modeName.getContents()).getKey());

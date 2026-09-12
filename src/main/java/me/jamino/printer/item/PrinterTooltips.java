@@ -3,11 +3,11 @@ package me.jamino.printer.item;
 import me.jamino.printer.data.ImageReference;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.DyeColor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 /** Shared tooltip text; keyboard access is installed only by the client. */
@@ -54,7 +54,6 @@ public final class PrinterTooltips {
     }
 
     public static void appendImage(List<Component> tooltip, @Nullable ImageReference reference, boolean expanded) {
-        tooltip.add(line("item.printer.image.tooltip.summary"));
         if (reference == null) {
             tooltip.add(line("item.printer.image.unprinted"));
             if (expanded) {
@@ -68,12 +67,12 @@ public final class PrinterTooltips {
         Component title = reference.title().isBlank()
                 ? Component.translatable("item.printer.image.untitled") : Component.literal(reference.title());
         tooltip.add(Component.translatable("item.printer.image.title", title).withStyle(ChatFormatting.GOLD));
+        behaviour(tooltip, "image", 4, reference.blocksWide(), reference.blocksHigh());
         if (expanded) {
             condition(tooltip, "image", 2);
             behaviour(tooltip, "image", 2, reference.sourceWidth(), reference.sourceHeight());
             behaviour(tooltip, "image", 3, reference.pixelWidth(), reference.pixelHeight());
-            behaviour(tooltip, "image", 4, reference.blocksWide(), reference.blocksHigh());
-            behaviour(tooltip, "image", 5, String.format(Locale.ROOT, "#%06X", reference.backgroundColor()));
+            behaviour(tooltip, "image", 5, backgroundName(reference.backgroundColor()));
             behaviour(tooltip, "image", 6, Component.translatable("gui.printer.mode." + reference.mode().getSerializedName()));
             condition(tooltip, "image", 3);
             behaviour(tooltip, "image", 7);
@@ -100,5 +99,16 @@ public final class PrinterTooltips {
         tooltip.add(Component.translatable("tooltip.printer.hold_shift",
                 Component.translatable("key.keyboard.left.shift").withStyle(ChatFormatting.YELLOW))
                 .withStyle(ChatFormatting.DARK_GRAY));
+    }
+
+    private static Component backgroundName(int color) {
+        int normalized = color & 0xFFFFFF;
+        for (DyeColor dye : DyeColor.values()) {
+            int dyeColor = dye == DyeColor.WHITE ? ImageReference.DEFAULT_BACKGROUND_COLOR : dye.getFireworkColor();
+            if (dyeColor == normalized) {
+                return Component.translatable("color.minecraft." + dye.getName());
+            }
+        }
+        return Component.translatable("item.printer.image.background.custom");
     }
 }
