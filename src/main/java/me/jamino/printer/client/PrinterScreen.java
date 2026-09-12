@@ -37,7 +37,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         imageWidth = 256;
         imageHeight = 238;
         inventoryLabelX = 48;
-        inventoryLabelY = 145;
+        inventoryLabelY = 143;
     }
 
     @Override
@@ -65,7 +65,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         larger.setTooltip(Tooltip.create(tr("larger")));
         smaller.setIcon(PrinterButton.Icon.MINUS);
         larger.setIcon(PrinterButton.Icon.PLUS);
-        print = key(112, 113, 18, 18, tr("print"), 0xFFAF653F,
+        print = key(111, 113, 18, 18, tr("print"), 0xFFAF653F,
                 button -> { upload.clearStatus(); ModNetworking.sendPrint(menu.getPos()); });
         print.setIcon(PrinterButton.Icon.PRINT);
         colors.clear();
@@ -214,8 +214,8 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         centeredLabel(graphics, tr("preview"), 216, 18, 0xFF424C43);
         graphics.drawString(font, tr("paper_short"), 12, 79, 0xFF424C43, false);
         graphics.drawString(font, tr("ink_short"), 48, 79, 0xFF424C43, false);
-        graphics.drawString(font, tr("output_short"), 104, 79, 0xFF424C43, false);
-        centeredLabel(graphics, tr("size"), 200, 79, 0xFF424C43);
+        centeredLabel(graphics, tr("output_short"), 120, 79, 0xFF424C43);
+        centeredLabel(graphics, tr("size"), 198, 81, 0xFF424C43);
         PrinterPreset preset = preset();
         graphics.drawCenteredString(font, preset == null ? tr("no_size")
                 : Component.translatable("gui.printer.block_dimensions", preset.blocksWide(), preset.blocksHigh()), 200, 96, CREAM);
