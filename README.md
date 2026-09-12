@@ -22,7 +22,9 @@ The control panel includes a live image preview, recessed green URL and amber ti
 
 Animated WebP/GIF files and multipage TIFF/ICO files use their first image. Transparency is printed against the selected background color, which defaults to white. The bundled TwelveMonkeys readers run in pure Java, including on dedicated servers; players do not need an extra codec mod. AVIF, HEIC, and SVG input are not supported. Missing or generic binary HTTP content types are allowed only when the file bytes decode as a supported image.
 
-Monochrome printing converts only the artwork to dithered black and white, then applies the selected background as a flat color. Changing the background does not change the opaque artwork's ink pattern or add speckles to transparent areas; partially transparent edges remain softly blended. The canvas sides and back use the saved background color in both print modes. The live preview shows the source and background, not the monochrome conversion.
+Ink sacs support only pure black (`#000000`) or white (`#FFFFFF`) backgrounds. Other background colors require a Color Cartridge. Colored swatches are disabled while an ink sac is loaded; if a colored preset is carried over from color printing, choose black/white or switch back to a cartridge before printing. This also applies to redstone automation; rejected prints consume nothing.
+
+Monochrome printing converts only the artwork to dithered black and white, then applies the selected black or white background as a flat color. Changing between black and white does not change the opaque artwork's ink pattern or add speckles to transparent areas; partially transparent edges remain softly blended. The canvas sides and back use the saved background color in both print modes. The live preview shows the source and background, not the monochrome conversion.
 
 Version 0.1.0 is the first public release and intentionally allows breaking changes during development. It requires new worlds; pre-0.1.0 development worlds and old Printer/Image items are not supported. The current 0.1.0 build is a release candidate until the final art pass and exact-artifact smoke tests are signed off.
 

@@ -2,7 +2,9 @@
 
 Run the same scenarios in a fresh single-player instance and on a fresh dedicated server with a separate client. Use Java 21, Minecraft 1.21.1, NeoForge 21.1.248 and the exact candidate JAR on both sides. Keep existing development worlds untouched. Only mark a result Pass after observing it; automated tests do not sign off gameplay.
 
-Current test build: **0.0.11** (release target: **0.1.0**). Artifact: `build/libs/printer-0.0.11.jar`. SHA-256: `c8706e5cb81669de418c955ec6e58029d81387adb727f9e2b119b430858f0b36`.
+Current test build: **0.0.12** (release target: **0.1.0**, final requested texture/GUI pass). Artifact: `build/libs/printer-0.0.12.jar`. SHA-256: `76aab78dfb9ddd320873572477cdafe8d28e852ca52bd5941d8c88e3daa34f13`.
+
+Art-pass verification: offline build passed all 108 unit tests with zero failures/errors using process-local `JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=C:/hackerman/Printer/build/tmp` and TEMP/TMP pointed at that directory. All 13 packaged PNGs match the source assets. `build/art-preview.png` is a reviewed design preview, not an in-game capture; gameplay sign-off remains pending.
 
 Tester / date: **maintainer testing in progress — 2026-09-11**; exact-artifact matrix sign-off pending.
 
@@ -11,6 +13,7 @@ Instance settings and deviations: **pending**
 | Scenario | Expected result | Single-player | Dedicated server |
 | --- | --- | --- | --- |
 | Startup | No missing registries, client-class loading failures, or error logs; recipes load. | Pending | Pending |
+| Final texture/GUI pass | At normal/large GUI scales: status and Inventory do not touch; Load/Browse/Print icons have tooltips and keyboard focus; Browse becomes Cancel while uploading; size symbols are centered. Header changes immediately between P-01 (empty), P-01 / B&W (ink sac), and P-01 / COLOR (cartridge), including hopper changes. Block front is recognizable in every orientation; trays appear only on the paper/output sides; top has the ink slot; blank Image has crisp pixels. | Pending | Pending |
 | Discoverability | Printer tab, printer icon; Printer / Color Cartridge / Image order; no Functional Blocks duplicates; creative search finds items. | Pending | Pending |
 | Obtain/craft | Both recipes work; obtain advancement awards once. | Pending | Pending |
 | URL load | Public direct PNG/JPEG and one bundled-codec fixture load, preview and sizing agree; load advancement only on success. | Pending | Pending |
@@ -18,7 +21,8 @@ Instance settings and deviations: **pending**
 | Limits | Download over configured byte limit and image over 4096 pixels on an axis reject without allocating the full bitmap; accepted large source scales to configured saved resolution. | Pending | Pending |
 | Manual print | Paper cost matches area; color consumes one charge, monochrome one sac; full output prevents print; first-print advancement fires only on success. | Pending | Pending |
 | Background fill | With a PNG whose alpha is confirmed, switch white/red/another color: preview updates, a new color print fills transparent pixels accordingly, opaque white artwork remains white, and wall canvas margins/back/edges use the selected color. | Re-test pending; white pixels/edges reported | Pending |
-| Clean monochrome | Print transparent artwork using ink sacs with white/red/another background. Only artwork is dithered to black/white; transparent regions stay uniformly background-colored, opaque ink patterns do not change with background selection, and soft alpha edges blend without retaining source hues. Entity sides/back keep the saved background color. | Pending | Pending |
+| Clean monochrome | Print transparent artwork using ink sacs with pure white and pure black backgrounds. Only artwork is dithered to black/white; transparent regions stay uniformly background-colored, opaque ink patterns do not change with background selection, and soft alpha edges blend without retaining source hues. Entity sides/back keep the saved background color. | Pending | Pending |
+| Ink/background policy | Ink sacs enable only pure black/white swatches. Swap a colored preset from a cartridge to an ink sac: printing is disabled with actionable help, manual/redstone requests produce no output and consume nothing, and colored background payloads cannot bypass the rule. Choosing black/white restores ink-sac printing; a usable cartridge allows colored backgrounds again. Repeat with a carried/reloaded preset. | Pending | Pending |
 | Opaque image canvas | Print the same fully opaque image with red and another background. The image artwork stays unchanged, but each placed entity's sides/back/exposed margins use that print's saved color, even if both prints share identical PNG content. Repeat after save/reload. | Pending | Pending |
 | Tooltips | Every item with/without Shift; fresh/partially used/depleted cartridges; blank/titled/untitled Images; Create/AnalogAudio-style summary/condition/behaviour formatting; background color details; no decorative frame data. | Pending | Pending |
 | Hoppers | Ink above, paper at intended side, extraction below/right; invalid sides/items rejected. Repeat in all four horizontal orientations. | Pending | Pending |
@@ -32,11 +36,19 @@ Instance settings and deviations: **pending**
 | Safety/logging | Timeout and storage-full jobs leave machine usable; no sensitive URL text in player messages/logs; packets from invalid or distant menus rejected. | Pending | Pending |
 | Fresh-world requirement | Start a new 0.1.0 world; confirm the release documentation clearly states that pre-0.1.0 development worlds and items are unsupported. No old-save migration test is required. | Pending | Pending |
 
-Automated verification: `./gradlew.bat build`; retain test reports with the candidate checksum. The working version is currently 0.0.11 for maintainer testing; restore 0.1.0 for the final artifact. Exact-artifact fresh-instance sign-off and publication remain pending until all required rows pass or a failing feature is explicitly removed from the release contract. Texture refinement and GUI texture changes remain a separate final pass; rebuild and repeat exact-artifact checks after that pass.
+Automated verification: `./gradlew.bat build`; retain test reports with the candidate checksum. The working version is currently 0.0.12 for maintainer testing; restore 0.1.0 for the final artifact. Exact-artifact fresh-instance sign-off and publication remain pending until all required rows pass or a failing feature is explicitly removed from the release contract. Texture refinement and GUI texture changes remain a separate final pass; rebuild and repeat exact-artifact checks after that pass.
+
+## Ink/background policy follow-up — 2026-09-11
+
+Ink sacs now permit only pure black (`#000000`) or white (`#FFFFFF`) backgrounds. Other colors require a usable Color Cartridge. The palette disables colored swatches with an ink sac and supplies translated help; the black swatch and its Image tooltip name use pure black. Server background requests, print eligibility, and processor validation enforce the same rule. A colored preset is retained when ink is swapped, but incompatible printing is blocked until the player changes background or ink. Rejected manual and redstone requests consume nothing and produce no output.
+
+All 7 required integration GameTests passed, including explicit colored/gray background rejection, rejected manual/redstone requests without supply consumption, and successful black manual / white redstone prints with the correct pixel and metadata colors. This run reused the isolated `build/gametest-0.1.0-run` test world and logged the previous test version changing from 0.1.0 to 0.0.12; it is regression evidence, not a fresh-world or exact-JAR manual sign-off. The ordinary distributable build excludes opt-in GameTest classes/resources.
+
+The final ordinary `gradlew.bat build --offline` passes 108 unit tests with zero failures/errors, including background policy, supply swaps, processor rejection, black/white compositing, and pure-black tooltip naming. The refreshed test artifact checksum is recorded above; manual matrix rows remain pending.
 
 ## Clean monochrome follow-up — 2026-09-11
 
-The current 0.0.11 test build passes 104 unit tests with zero failures/errors. Color printing still composites the original resized artwork. Monochrome now dithers artwork only, excludes transparent pixels from error diffusion, preserves partial alpha coverage, and then composites the chosen background as a flat fill. Tests cover unspeckled colored paper, background-independent opaque ink patterns, soft colored-source edges converted to monochrome, deterministic output, and opaque-image deduplication. The source/background preview is not a simulation of the ink-sac conversion.
+The earlier 0.0.11 test build passed 104 unit tests with zero failures/errors. Color printing still composites the original resized artwork. Monochrome dithers artwork only, excludes transparent pixels from error diffusion, preserves partial alpha coverage, and then composites the chosen background as a flat fill. This separation remains, but the newer ink/background policy restricts that fill to black or white. Tests now cover unspeckled black/white paper, background-independent opaque ink patterns, soft colored-source edges converted to monochrome, deterministic output, and opaque-image deduplication. The source/background preview is not a simulation of the ink-sac conversion.
 
 Restart the client/server with this build and print new copies to test; already printed variants are immutable. Canvas sides/back retain the saved background color in both modes. Maintainer gameplay sign-off remains pending; prior GameTest results are historical rather than a fresh run of this follow-up.
 

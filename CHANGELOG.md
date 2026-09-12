@@ -5,10 +5,13 @@
 - Remove frame selection, frame metadata, decorative-border rendering, and old development-item metadata fallback paths. This first public release requires new worlds; pre-0.1.0 saves and Printer/Image items are unsupported.
 - Add a compact 16-color background palette, defaulting to white. Preserve source transparency until printing. Color prints composite the original artwork; monochrome prints dither only the artwork before applying a flat background, preserving soft alpha edges without dithering the paper color.
 - Carry the 24-bit background color through preset saves, dropped Printer items, Image components, entity saves/drops, and network synchronization. Transparent variants deduplicate by their final PNG content.
+- Restrict ink-sac printing to pure black/white backgrounds. Colored backgrounds require a Color Cartridge; enforce the rule in the palette, server background/print requests, completion checks, and image processing, including redstone jobs. Invalid prints leave supplies untouched.
 - Adopt translated summary/condition/behaviour tooltips for every item, with gold condition headings and gray detail lines visible only while holding Shift. Image details report background color without frame data or internal IDs.
 - Ship local file upload, server-side image validation, core advancements, the dedicated creative tab, and the reviewed community translation workflow.
 - Bound gallery image-request bursts and response traffic; fix the missing cache import and request-budget implementation found by the release build.
-- Package the MIT license and credits with the mod. Texture refinement, GUI texture changes, and final exact-artifact gameplay sign-off remain release gates.
+- Simplify the Printer block into a clear front control panel, side-only paper trays, and quiet top/back/bottom faces. Replace the blank Image item with hard-edged 16×16 pixel art.
+- Use compact Load/Browse/Print icons with tooltips, centered size symbols, a wider title field, and separated status/inventory text. The model header follows inserted ink: B&W for ink sacs, COLOR for cartridges, and P-01 when empty.
+- Package the MIT license and credits with the mod. Final exact-artifact gameplay and visual sign-off remain release gates.
 
 ## 0.0.9 — testing build
 

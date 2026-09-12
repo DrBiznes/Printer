@@ -5,7 +5,10 @@ import me.jamino.printer.Config;
 import me.jamino.printer.Printer;
 import me.jamino.printer.data.PrinterPreset;
 import me.jamino.printer.data.ImageReference;
+import me.jamino.printer.image.ImageFailure;
 import me.jamino.printer.inventory.PrinterMenu;
+import me.jamino.printer.registry.ModItems;
+import me.jamino.printer.block.entity.PrinterBlockEntity;
 import me.jamino.printer.network.ModNetworking;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
@@ -34,7 +37,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         imageWidth = 256;
         imageHeight = 238;
         inventoryLabelX = 48;
-        inventoryLabelY = 143;
+        inventoryLabelY = 145;
     }
 
     @Override
@@ -45,11 +48,13 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         url = field(14, 32, 156, "url", 2048, 0xFFBDE0CD);
         url.setValue(previousUrl);
         url.setTooltip(Tooltip.create(tr("formats")));
-        titleBox = field(14, 55, 62, "title", 64, 0xFFF1D699);
+        titleBox = field(14, 55, 116, "title", 64, 0xFFF1D699);
         titleBox.setValue(previousTitle);
-        load = key(80, 51, 44, 18, tr("load"), 0xFF4E807B,
+        load = key(136, 51, 18, 18, tr("load"), 0xFF4E807B,
                 button -> { upload.clearStatus(); ModNetworking.sendLoad(menu.getPos(), url.getValue().trim(), titleBox.getValue()); });
-        browse = key(126, 51, 48, 18, tr("browse"), 0xFF4E807B,
+        load.setIcon(PrinterButton.Icon.LOAD);
+        load.setTooltip(Tooltip.create(tr("load_help")));
+        browse = key(156, 51, 18, 18, tr("browse"), 0xFF4E807B,
                 button -> { if (upload.busy()) upload.cancel(); else upload.select(titleBox.getValue()); });
         browse.setTooltip(Tooltip.create(tr("browse_help")));
         smaller = key(154, 91, 18, 18, tr("decrease"), 0xFF736C59,
@@ -58,16 +63,20 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
                 button -> ModNetworking.sendResize(menu.getPos(), 1));
         smaller.setTooltip(Tooltip.create(tr("smaller")));
         larger.setTooltip(Tooltip.create(tr("larger")));
-        print = key(100, 114, 44, 18, tr("print"), 0xFFAF653F,
+        smaller.setIcon(PrinterButton.Icon.MINUS);
+        larger.setIcon(PrinterButton.Icon.PLUS);
+        print = key(112, 113, 18, 18, tr("print"), 0xFFAF653F,
                 button -> { upload.clearStatus(); ModNetworking.sendPrint(menu.getPos()); });
+        print.setIcon(PrinterButton.Icon.PRINT);
         colors.clear();
-        DyeColor[] palette = {DyeColor.WHITE, DyeColor.LIGHT_GRAY, DyeColor.GRAY, DyeColor.BLACK,
+        DyeColor[] palette = {DyeColor.WHITE, DyeColor.BLACK, DyeColor.LIGHT_GRAY, DyeColor.GRAY,
                 DyeColor.BROWN, DyeColor.RED, DyeColor.ORANGE, DyeColor.YELLOW,
                 DyeColor.LIME, DyeColor.GREEN, DyeColor.CYAN, DyeColor.LIGHT_BLUE,
                 DyeColor.BLUE, DyeColor.PURPLE, DyeColor.MAGENTA, DyeColor.PINK};
         for (int i = 0; i < palette.length; i++) {
             DyeColor dye = palette[i];
-            int color = dye == DyeColor.WHITE ? ImageReference.DEFAULT_BACKGROUND_COLOR : dye.getFireworkColor();
+            int color = dye == DyeColor.WHITE ? ImageReference.DEFAULT_BACKGROUND_COLOR
+                    : dye == DyeColor.BLACK ? 0x000000 : dye.getFireworkColor();
             Component label = Component.translatable("gui.printer.background_option",
                     Component.translatable("color.minecraft." + dye.getName()));
             var swatch = addRenderableWidget(new PrinterColorButton(leftPos + 159 + i % 8 * 11,
@@ -117,14 +126,22 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         smaller.active = !busy && preset != null && Math.max(preset.blocksWide(), preset.blocksHigh()) > 1;
         larger.active = !busy && preset != null
                 && Math.max(preset.blocksWide(), preset.blocksHigh()) < Config.SERVER.maxPlacementBlocks.get();
-        colors.forEach(swatch -> swatch.active = !busy && preset != null);
+        colors.forEach(swatch -> {
+            boolean allowed = menu.getPrinter() != null && menu.getPrinter().canUseBackgroundColor(swatch.color());
+            swatch.active = !busy && preset != null && allowed;
+            swatch.setTooltip(Tooltip.create(allowed ? swatch.getMessage()
+                    : Component.translatable(ImageFailure.Reason.MONOCHROME_BACKGROUND.key())));
+        });
         browse.setMessage(tr(upload.busy() ? "cancel" : "browse"));
+        browse.setIcon(upload.busy() ? PrinterButton.Icon.CANCEL : PrinterButton.Icon.BROWSE);
         browse.active = upload.busy() || (!busy && Config.SERVER.allowLocalUploads.get());
-        browse.setTooltip(Tooltip.create(Config.SERVER.allowLocalUploads.get() ? tr("browse_help")
+        browse.setTooltip(Tooltip.create(upload.busy() ? tr("cancel") : Config.SERVER.allowLocalUploads.get() ? tr("browse_help")
                 : Component.translatable("message.printer.error.upload_disabled")));
         load.active = !busy && !url.getValue().isBlank();
         print.active = !busy && menu.getPrinter().hasPrintingSupplies();
-        print.setTooltip(Tooltip.create(tr(preset == null ? "empty" : print.active ? "print_help" : "supplies_help")));
+        print.setTooltip(Tooltip.create(preset != null && !menu.getPrinter().canPrintBackground()
+                ? Component.translatable(ImageFailure.Reason.MONOCHROME_BACKGROUND.key())
+                : tr(preset == null ? "empty" : print.active ? "print_help" : "supplies_help")));
         url.setEditable(!busy);
         titleBox.setEditable(!busy);
     }
@@ -133,7 +150,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.blit(PANEL, leftPos, topPos, 0, 0, imageWidth, imageHeight, imageWidth, imageHeight);
         if (url.isFocused()) graphics.renderOutline(leftPos + 10, topPos + 27, 164, 20, 0xFF83B8A6);
-        if (titleBox.isFocused()) graphics.renderOutline(leftPos + 10, topPos + 50, 68, 20, 0xFFD3AD68);
+        if (titleBox.isFocused()) graphics.renderOutline(leftPos + 10, topPos + 50, 124, 20, 0xFFD3AD68);
         String[] ghosts = {"paper", "ink", "output"};
         for (int i = 0; i < 3 && menu.getPrinter() != null; i++) {
             var slot = menu.slots.get(i);
@@ -188,7 +205,11 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.drawString(font, title, 20, 7, CREAM, false);
-        graphics.drawString(font, tr("model"), 171, 7, 0xFFB7B7A0, false);
+        var ink = menu.getPrinter() == null ? net.minecraft.world.item.ItemStack.EMPTY
+                : menu.slots.get(PrinterBlockEntity.INK_SLOT).getItem();
+        Component model = tr(ink.is(ModItems.COLOR_CARTRIDGE.get()) ? "model.color"
+                : ink.is(net.minecraft.world.item.Items.INK_SAC) ? "model.monochrome" : "model");
+        graphics.drawString(font, model, 238 - font.width(model), 7, 0xFFB7B7A0, false);
         graphics.drawString(font, tr("source"), 12, 18, 0xFF424C43, false);
         centeredLabel(graphics, tr("preview"), 216, 18, 0xFF424C43);
         graphics.drawString(font, tr("paper_short"), 12, 79, 0xFF424C43, false);
@@ -203,7 +224,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         graphics.drawString(font, tr("background_short"), 146, 119, 0xFF424C43, false);
         String status = menu.getPrinter() == null ? "gui.printer.empty" : menu.getPrinter().getStatusKey();
         graphics.drawString(font, font.plainSubstrByWidth((upload.status() == null ? Component.translatable(status) : upload.status()).getString(), 230),
-                12, 134, 0xFFBDE0CD, false);
+                12, 133, 0xFFBDE0CD, false);
         graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFF424C43, false);
     }
 
@@ -239,7 +260,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
                 graphics.renderTooltip(font, tr(tips[i]), mouseX, mouseY);
             }
         }
-        if (isHovering(10, 132, 236, 12, mouseX, mouseY)) {
+        if (isHovering(10, 132, 236, 10, mouseX, mouseY)) {
             Component status = upload.status() != null ? upload.status() : Component.translatable(
                     menu.getPrinter() == null ? "gui.printer.empty" : menu.getPrinter().getStatusKey());
             graphics.renderTooltip(font, status, mouseX, mouseY);

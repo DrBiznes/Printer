@@ -192,6 +192,61 @@ public final class PrinterGameTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void inkSacBackgroundPolicyCannotBeBypassed(GameTestHelper helper) throws Exception {
+        var printer = machine(helper);
+        var player = player(helper, printer);
+        var source = ImageProcessor.canonicalize(png());
+        ImageStore.putSource(helper.getLevel().getServer(), source);
+        printer.setPreset(new PrinterPreset(source.contentId(), "Ink policy", 32, 16, 1, 1, 0xB02E26, 32, 16));
+        printer.setItem(0, new ItemStack(Items.PAPER, 4));
+        printer.setItem(1, new ItemStack(Items.INK_SAC, 4));
+        PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x224466);
+        helper.assertValueEqual(printer.getPreset().orElseThrow().backgroundColor(), 0xB02E26,
+                "Colored background payload rejected with ink sac");
+        PrinterJobService.requestPrint(helper.getLevel(), printer.getBlockPos(), player);
+        helper.assertFalse(printer.isPrinting(), "Manual colored print rejected before processing");
+        helper.assertValueEqual(printer.getStatusKey(), ImageFailure.Reason.MONOCHROME_BACKGROUND.key(),
+                "Actionable background policy error");
+        printer.updateRedstone(true);
+        helper.assertFalse(printer.isPrinting(), "Redstone cannot bypass background policy");
+        helper.assertTrue(printer.getItem(2).isEmpty(), "Rejected prints produce no output");
+        helper.assertValueEqual(printer.getItem(0).getCount(), 4, "Rejected prints do not consume paper");
+        helper.assertValueEqual(printer.getItem(1).getCount(), 4, "Rejected prints do not consume ink");
+        printer.updateRedstone(false);
+        PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x000000);
+        PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x808080);
+        helper.assertValueEqual(printer.getPreset().orElseThrow().backgroundColor(), 0x000000,
+                "Pure black accepted, gray rejected");
+        PrinterJobService.requestPrint(helper.getLevel(), printer.getBlockPos(), player);
+        helper.assertTrue(printer.isPrinting(), "Manual black background print starts");
+        helper.startSequence().thenWaitUntil(() -> helper.assertFalse(printer.isPrinting(), "Wait for black print"))
+                .thenExecute(() -> {
+                    assertMonochromeBackground(helper, printer, 0x000000);
+                    printer.removeItem(2, 1);
+                    PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0xFFFFFF);
+                    printer.updateRedstone(true);
+                    helper.assertTrue(printer.isPrinting(), "Redstone white background print starts");
+                }).thenWaitUntil(() -> helper.assertFalse(printer.isPrinting(), "Wait for white print"))
+                .thenExecute(() -> {
+                    assertMonochromeBackground(helper, printer, 0xFFFFFF);
+                    helper.assertValueEqual(printer.getItem(0).getCount(), 2, "Two valid prints consume two paper");
+                    helper.assertValueEqual(printer.getItem(1).getCount(), 2, "Two valid prints consume two sacs");
+                    helper.assertFalse(done(player, "color"), "Ink sac prints cannot grant color advancement");
+                }).thenSucceed();
+    }
+
+    private static void assertMonochromeBackground(GameTestHelper helper, PrinterBlockEntity printer, int background) {
+        var reference = printer.getItem(2).get(ModDataComponents.IMAGE_REFERENCE.get());
+        helper.assertTrue(reference != null, "Print output has reference");
+        helper.assertValueEqual(reference.mode(), PrintMode.MONOCHROME, "Output mode is monochrome");
+        helper.assertValueEqual(reference.backgroundColor(), background, "Output saves allowed background");
+        try {
+            var image = ImageProcessor.decodeChecked(ImageStore.getVariant(helper.getLevel().getServer(), reference.contentId()));
+            helper.assertValueEqual(image.getRGB(0, 0), 0xFF000000 | background, "Transparent area uses allowed background");
+        } catch (Exception error) { throw new RuntimeException(error); }
+    }
+
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void jobIdentityAndSupplyModeCannotCrossReplacement(GameTestHelper helper) {
         var printer = machine(helper);

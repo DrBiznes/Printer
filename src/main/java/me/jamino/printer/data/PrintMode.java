@@ -19,6 +19,11 @@ public enum PrintMode implements StringRepresentable {
         this.serializedName = serializedName;
     }
 
+    public boolean allowsBackground(int color) {
+        return color >= 0 && color <= 0xFFFFFF
+                && (this == COLOR || color == 0x000000 || color == 0xFFFFFF);
+    }
+
     @Override
     public String getSerializedName() {
         return serializedName;

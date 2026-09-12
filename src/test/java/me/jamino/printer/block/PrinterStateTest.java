@@ -90,4 +90,28 @@ class PrinterStateTest {
         assertFalse(nbt.contains("PresetSource"));
     }
 
+    @Test void coloredPresetCannotPrintWithInkSacButBlackAndWhiteCan() {
+        var printer = printer(Direction.NORTH);
+        var colored = new PrinterPreset("a".repeat(64), "", 32, 16, 1, 1, 0xB02E26, 32, 16);
+        printer.setPreset(colored);
+        printer.setItem(0, new ItemStack(Items.PAPER, 3));
+        printer.setItem(1, new ItemStack(ModItems.COLOR_CARTRIDGE.get()));
+        assertTrue(printer.hasPrintingSupplies());
+        assertTrue(printer.canUseBackgroundColor(0xB02E26));
+        printer.setItem(1, new ItemStack(Items.INK_SAC, 3));
+        assertFalse(printer.hasPrintingSupplies());
+        assertFalse(printer.canPrintBackground());
+        assertFalse(printer.canUseBackgroundColor(0xB02E26));
+        assertFalse(printer.matchesPrint(colored, PrintMode.MONOCHROME));
+        assertEquals(colored, printer.getPreset().orElseThrow(), "Ink swap must not silently rewrite the preset");
+        for (int background : new int[]{0x000000, 0xFFFFFF}) {
+            printer.setPreset(new PrinterPreset("a".repeat(64), "", 32, 16, 1, 1, background, 32, 16));
+            assertTrue(printer.canUseBackgroundColor(background));
+            assertTrue(printer.canPrintBackground());
+            assertTrue(printer.hasPrintingSupplies());
+        }
+        assertEquals(3, printer.getItem(0).getCount());
+        assertEquals(3, printer.getItem(1).getCount());
+    }
+
 }

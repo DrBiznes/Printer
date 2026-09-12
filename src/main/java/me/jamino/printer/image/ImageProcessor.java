@@ -56,6 +56,8 @@ public final class ImageProcessor {
     }
 
     static ProcessedImage createVariant(byte[] sourcePng, int width, int height, boolean monochrome, int backgroundColor) throws IOException {
+        if (monochrome && !PrintMode.MONOCHROME.allowsBackground(backgroundColor))
+            throw new ImageFailure(ImageFailure.Reason.MONOCHROME_BACKGROUND);
         BufferedImage source = decodeChecked(sourcePng);
         BufferedImage artwork = resize(source, width, height);
         // Ink conversion is independent of paper color. Otherwise colored paper

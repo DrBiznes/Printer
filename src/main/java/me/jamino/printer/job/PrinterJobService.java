@@ -110,7 +110,7 @@ public final class PrinterJobService {
     public static void requestBackground(ServerLevel level, BlockPos pos, int color) {
         if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) || printer.isPrinting()) return;
         PrinterPreset preset = printer.getPreset().orElse(null);
-        if (preset == null || color < 0 || color > 0xFFFFFF) return;
+        if (preset == null || !printer.canUseBackgroundColor(color)) return;
         printer.setPreset(new PrinterPreset(preset.sourceId(), preset.title(), preset.sourceWidth(), preset.sourceHeight(),
                 preset.blocksWide(), preset.blocksHigh(), color, preset.originalWidth(), preset.originalHeight()));
     }
@@ -120,6 +120,7 @@ public final class PrinterJobService {
         if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) || printer.isPrinting()) return;
         PrinterPreset preset = printer.getPreset().orElse(null);
         if (preset == null) { fail(printer, player, NO_IMAGE); return; }
+        if (!printer.canPrintBackground()) { fail(printer, player, MONOCHROME_BACKGROUND); return; }
         if (!printer.hasPrintingSupplies()) { fail(printer, player, NO_SUPPLIES); return; }
         byte[] source = ImageStore.getSource(level.getServer(), preset.sourceId());
         if (source == null) { fail(printer, player, MISSING_DATA); return; }

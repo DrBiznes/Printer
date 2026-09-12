@@ -30,6 +30,7 @@ public final class PrinterTooltips {
             condition(tooltip, "printer", 1);
             behaviour(tooltip, "printer", 1);
             behaviour(tooltip, "printer", 2);
+            behaviour(tooltip, "printer", 7);
             condition(tooltip, "printer", 2);
             behaviour(tooltip, "printer", 3);
             behaviour(tooltip, "printer", 4);
@@ -104,7 +105,8 @@ public final class PrinterTooltips {
     private static Component backgroundName(int color) {
         int normalized = color & 0xFFFFFF;
         for (DyeColor dye : DyeColor.values()) {
-            int dyeColor = dye == DyeColor.WHITE ? ImageReference.DEFAULT_BACKGROUND_COLOR : dye.getFireworkColor();
+            int dyeColor = dye == DyeColor.WHITE ? ImageReference.DEFAULT_BACKGROUND_COLOR
+                    : dye == DyeColor.BLACK ? 0x000000 : dye.getFireworkColor();
             if (dyeColor == normalized) {
                 return Component.translatable("color.minecraft." + dye.getName());
             }

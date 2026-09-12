@@ -161,7 +161,7 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     }
 
     public boolean hasPrintingSupplies() {
-        return preset != null && items.get(PAPER_SLOT).is(Items.PAPER)
+        return canPrintBackground() && items.get(PAPER_SLOT).is(Items.PAPER)
                 && items.get(PAPER_SLOT).getCount() >= preset.requiredPaper()
                 && (items.get(INK_SLOT).is(Items.INK_SAC) || (items.get(INK_SLOT).is(ModItems.COLOR_CARTRIDGE.get())
                     && items.get(INK_SLOT).getDamageValue() < items.get(INK_SLOT).getMaxDamage()))
@@ -190,6 +190,16 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
 
     public boolean isMonochromeSupply() {
         return items.get(INK_SLOT).is(Items.INK_SAC);
+    }
+
+    public boolean canUseBackgroundColor(int color) {
+        var mode = isMonochromeSupply() ? me.jamino.printer.data.PrintMode.MONOCHROME
+                : me.jamino.printer.data.PrintMode.COLOR;
+        return mode.allowsBackground(color);
+    }
+
+    public boolean canPrintBackground() {
+        return preset != null && canUseBackgroundColor(preset.backgroundColor());
     }
 
     public void setOutput(ItemStack stack) {

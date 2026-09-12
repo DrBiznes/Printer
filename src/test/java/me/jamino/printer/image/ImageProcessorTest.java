@@ -169,8 +169,7 @@ final class ImageProcessorTest {
         var white = ImageProcessor.createVariant(canonical.png(), 2, 2, true, 0xFFFFFF);
         assertEquals(0xFF000000, ImageProcessor.decodeChecked(black.png()).getRGB(0, 0));
         assertEquals(0xFFFFFFFF, ImageProcessor.decodeChecked(white.png()).getRGB(0, 0));
-        var red = ImageProcessor.createVariant(canonical.png(), 2, 2, true, 0xB02E26);
-        assertEquals(0xFFB02E26, ImageProcessor.decodeChecked(red.png()).getRGB(0, 0));
+
     }
 
     @Test
@@ -182,20 +181,20 @@ final class ImageProcessorTest {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         ImageIO.write(input, "png", bytes);
         var white = ImageProcessor.createVariant(bytes.toByteArray(), 32, 24, true, 0xFFFFFF);
-        var red = ImageProcessor.createVariant(bytes.toByteArray(), 32, 24, true, 0xB02E26);
-        var duplicate = ImageProcessor.createVariant(bytes.toByteArray(), 32, 24, true, 0xB02E26);
-        assertEquals(red.contentId(), duplicate.contentId());
-        assertFalse(white.contentId().equals(red.contentId()));
+        var black = ImageProcessor.createVariant(bytes.toByteArray(), 32, 24, true, 0x000000);
+        var duplicate = ImageProcessor.createVariant(bytes.toByteArray(), 32, 24, true, 0x000000);
+        assertEquals(black.contentId(), duplicate.contentId());
+        assertFalse(white.contentId().equals(black.contentId()));
         var whitePixels = ImageProcessor.decodeChecked(white.png());
-        var redPixels = ImageProcessor.decodeChecked(red.png());
+        var blackPixels = ImageProcessor.decodeChecked(black.png());
         Set<Integer> artworkColors = new HashSet<>();
         for (int y = 0; y < 24; y++) {
             for (int x = 0; x < 32; x++) {
                 if ((input.getRGB(x, y) >>> 24) == 0) {
-                    assertEquals(0xFFB02E26, redPixels.getRGB(x, y), "Paper must have no dither speckles");
+                    assertEquals(0xFF000000, blackPixels.getRGB(x, y), "Paper must have no dither speckles");
                 } else {
-                    assertEquals(whitePixels.getRGB(x, y), redPixels.getRGB(x, y), "Paper cannot change ink");
-                    artworkColors.add(redPixels.getRGB(x, y));
+                    assertEquals(whitePixels.getRGB(x, y), blackPixels.getRGB(x, y), "Paper cannot change ink");
+                    artworkColors.add(blackPixels.getRGB(x, y));
                 }
             }
         }
@@ -209,18 +208,27 @@ final class ImageProcessorTest {
         input.setRGB(2, 0, 0x80FFFFFF);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         ImageIO.write(input, "png", bytes);
-        var print = ImageProcessor.createVariant(bytes.toByteArray(), 3, 1, true, 0x0000FF);
+        var print = ImageProcessor.createVariant(bytes.toByteArray(), 3, 1, true, 0x000000);
         var output = ImageProcessor.decodeChecked(print.png());
-        assertEquals(0xFF0000FF, output.getRGB(0, 0));
-        assertEquals(0xFF00007F, output.getRGB(1, 0));
-        assertEquals(0xFF8080FF, output.getRGB(2, 0));
+        assertEquals(0xFF000000, output.getRGB(0, 0));
+        assertEquals(0xFF000000, output.getRGB(1, 0));
+        assertEquals(0xFF808080, output.getRGB(2, 0));
+    }
+
+    @Test
+    void monochromeRejectsColoredAndGrayBackgroundsBeforeProcessing() {
+        for (int color : new int[]{0xB02E26, 0x224466, 0x808080, 0x1D1D21}) {
+            var error = assertThrows(ImageFailure.class,
+                    () -> ImageProcessor.createVariant(sourcePng(), 12, 8, true, color));
+            assertEquals(ImageFailure.Reason.MONOCHROME_BACKGROUND, error.reason());
+        }
     }
 
     @Test
     void opaqueMonochromeArtworkDeduplicatesAcrossBackgroundSelections() throws Exception {
         var white = ImageProcessor.createVariant(sourcePng(), 12, 8, true, 0xFFFFFF);
-        var red = ImageProcessor.createVariant(sourcePng(), 12, 8, true, 0xB02E26);
-        assertEquals(white.contentId(), red.contentId());
+        var black = ImageProcessor.createVariant(sourcePng(), 12, 8, true, 0x000000);
+        assertEquals(white.contentId(), black.contentId());
     }
 
     private static byte[] sourcePng() throws IOException {

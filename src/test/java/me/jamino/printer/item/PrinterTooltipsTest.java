@@ -39,7 +39,7 @@ class PrinterTooltipsTest {
         var tooltip = tooltip(new ItemStack(ModItems.PRINTER.get()), expanded);
         assertHas(tooltip, "item.printer.printer.tooltip.summary");
         assertEquals(!expanded, has(tooltip, HINT));
-        assertDetails(tooltip, "printer", 3, 6, expanded);
+        assertDetails(tooltip, "printer", 3, 7, expanded);
     }
 
     @ParameterizedTest
@@ -73,7 +73,7 @@ class PrinterTooltipsTest {
     void printedImageHasTitleAndPlacementWithAccurateExpandedMetadata(String title) throws Exception {
         String contentId = "ab".repeat(32);
         for (PrintMode mode : PrintMode.values()) {
-            for (int background : new int[]{0xFFFFFF, DyeColor.RED.getFireworkColor(), DyeColor.BLUE.getFireworkColor(), 0x224466}) {
+            for (int background : new int[]{0xFFFFFF, 0x000000, DyeColor.RED.getFireworkColor(), DyeColor.BLUE.getFireworkColor(), 0x224466}) {
                 ItemStack image = new ItemStack(ModItems.IMAGE.get());
                 image.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(
                         contentId, 320, 160, 4, 2, title, mode, background, 3000, 1500));
@@ -96,6 +96,7 @@ class PrinterTooltipsTest {
                         Component backgroundName = (Component) translated(tooltip,
                                 "item.printer.image.tooltip.behaviour5").getArgs()[0];
                         String expectedBackgroundKey = background == 0xFFFFFF ? "color.minecraft.white"
+                                        : background == 0x000000 ? "color.minecraft.black"
                                         : background == DyeColor.RED.getFireworkColor() ? "color.minecraft.red"
                                         : background == DyeColor.BLUE.getFireworkColor() ? "color.minecraft.blue"
                                         : "item.printer.image.background.custom";

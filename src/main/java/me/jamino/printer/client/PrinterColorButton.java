@@ -17,6 +17,8 @@ final class PrinterColorButton extends Button {
         this.selected = selected;
     }
 
+    int color() { return color; }
+
     @Override
     protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int x = getX(), y = getY();

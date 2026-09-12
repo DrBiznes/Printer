@@ -17,15 +17,16 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 
 ## Current candidate — 0.1.0
 
-- Release target: 0.1.0 (unpublished; requires new worlds). Current working test version: 0.0.11, retained from the maintainer's version change.
+- Release target: 0.1.0 (unpublished; requires new worlds). Current working test version: 0.0.12, retained from the maintainer's version change.
 - URL loading, local file upload, server-authoritative image storage, source-dimension metadata, printed Image items, wall displays, color/monochrome printing, hopper-compatible item handling, and rising-edge redstone printing are implemented.
 - The dedicated Printer creative tab, all-item Shift tooltip behavior, core advancements, translated built-in strings, and regression coverage are implemented.
-- `image.png` is still 16×16, but its rounded, high-fidelity appearance does not match the rest of the mod's hard-edged pixel-art style.
+- `image.png` is now a deliberately simple, hard-edged 16×16 paper-and-landscape icon, generated from the editable art source.
 - Frame selection, decorative frames, and pre-release frame compatibility paths have been removed.
 - Canonical images preserve transparency; print variants composite against the selected background, with white as the default. The palette is code-drawn, so no texture assets were changed.
 
 ## Implementation progress — 2026-09-11
 
+- Final requested art pass: simplified all seven block textures (front/printing controls, side-only trays, quiet back/bottom, top cartridge slot) and replaced the blank Image with hard-edged 16×16 art. Updated the editable generator and its labeled design preview. GUI now has 18×18 Load/Browse/Print icons inspired by AnalogAudio's tape-deck controls, upload cancel feedback, centered pixel size symbols, more title space, separated status/inventory text, and an ink-dependent model header (P-01 empty, B&W ink sac, COLOR cartridge). Automated build passes 108 unit tests; maintainer gameplay/visual checks remain open.
 - Functional 0.1.0 implementation is complete: borderless prints, native background metadata throughout preset/item/entity/save/network paths, alpha-preserving canonical processing, the 16-color palette, and Create/AnalogAudio-style localized tooltips.
 - Release metadata, version, README, changelog, credits/license packaging, and the frozen [release contract](docs/RELEASE_0.1.0.md) are updated. Image-transfer request/byte budgets and regression coverage are included.
 - Before the background-rendering follow-up, the full offline build passed 95 unit tests with no failures/errors, and all 6 integration GameTests passed in the separate `build/gametest-0.1.0-run` directory. These results do not sign off manual gameplay or the exact packaged artifact.
@@ -35,7 +36,9 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 - Follow-up attachment inspection: the supplied 700×700 clipboard WebP has 275,432 fully transparent and 5,253 partially transparent pixels. A standalone probe of the current `ImageProcessor` preserves alpha at 700, 225, and 128 pixels and correctly fills every fully transparent pixel with white, red (`#B02E26`), or blue-gray (`#224466`). This verifies the attached file's processing, not the original URL/file-loading path or rendered gameplay. Determine whether the original load used a flattened URL thumbnail or different file; maintainer re-test remains open.
 - Manual testing is owned by the maintainer at their request. Background re-testing, normal/large GUI-scale checks, and fresh single-player/dedicated-server checks of the exact candidate remain open in [the smoke-test matrix](docs/SMOKE_TEST_0.1.0.md).
 - Texture refinement and GUI texture changes are intentionally deferred to a separate final pass. No publication approval is implied by the implementation checkboxes.
-- Clean monochrome follow-up: artwork-only alpha-aware dithering now precedes the flat background fill; color processing is unchanged. The current `0.0.11` test build passes 104 unit tests with zero failures/errors. Artifact: `build/libs/printer-0.0.11.jar`; SHA-256 `c8706e5cb81669de418c955ec6e58029d81387adb727f9e2b119b430858f0b36`. Existing prints remain immutable; print new copies to test the new monochrome handling. Gameplay testing remains with the maintainer.
+- Clean monochrome follow-up: artwork-only alpha-aware dithering now precedes the flat background fill; color processing is unchanged. The earlier `0.0.11` test build passed 104 unit tests with zero failures/errors. Artifact: `build/libs/printer-0.0.11.jar`; SHA-256 `c8706e5cb81669de418c955ec6e58029d81387adb727f9e2b119b430858f0b36`. Existing prints remain immutable; print new copies to test the new monochrome handling. Gameplay testing remains with the maintainer.
+- Ink/background policy follow-up: ink sacs now permit only pure black/white; other backgrounds require a Color Cartridge. All 7 integration GameTests pass, including no-consumption rejection of colored manual/redstone attempts and successful black/white prints. This reused the isolated test world and does not replace fresh exact-artifact maintainer testing. The new `0.0.12` version selected by the maintainer is retained.
+- Final ink-policy build: `gradlew.bat build --offline` passes 108 unit tests with zero failures/errors. Artifact: `build/libs/printer-0.0.12.jar`; SHA-256 `8210ff9b16047916235265dd9360d859bedb24d34b627cf0de9492cc9bb14437`. Normal packaging excludes opt-in GameTest fixtures. Maintainer GUI/gameplay sign-off remains open.
 
 ## Implementation progress — 2026-09-10
 
@@ -50,7 +53,7 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 ### P0 — must be complete before release
 
 - [x] Update and re-freeze the 0.1.0 feature contract for the no-frame/background-color design. Keep the existing version, image, upload, storage, and automation limits. See [release contract](docs/RELEASE_0.1.0.md).
-- [ ] Replace the blank Image placeholder texture at `src/main/resources/assets/printer/textures/item/image.png` with a deliberately simple 16×16 pixel-art item. Texture polish remains a final release gate.
+- [x] Replace the blank Image placeholder texture at `src/main/resources/assets/printer/textures/item/image.png` with a deliberately simple 16×16 pixel-art item. Maintainer visual sign-off remains pending.
 - [x] Add a dedicated Printer creative tab with a printer icon and a deliberate item order: Printer, Color Cartridge, Image. Remove the duplicate vanilla Functional Blocks insertion unless there is a clear discoverability reason to keep it.
 - [x] Implement refined tooltips for every registered Printer item with collapsed and Shift-expanded details.
 - [x] Restyle those tooltips to match the shared Create/AnalogAudio convention:
@@ -77,7 +80,8 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 - [x] Add a selectable background fill color with white as the default. Prefer a compact in-GUI palette for 0.1.0 refer to the Analog Audio Tape Deck color picker; persist the selected 24-bit color in the new preset and Image metadata, carry it through save/drop/network paths, and include it in variant generation/deduplication. Implemented as 16 code-drawn swatches, leaving GUI texture changes for the final separate pass.
 - [x] Preserve transparency until the selected background is applied during canonical/variant processing. No fallback conversion is needed for old white-composited sources because 0.1.0 requires new worlds.
 - [x] Always render the placed Image entity's shallow sides, back, and exposed canvas margins in its saved background color, even when the printed image is fully opaque. Canvas color is independent of image alpha and variant deduplication; renderer regression coverage checks all six canvas faces. Maintainer visual sign-off remains pending.
-- [x] Separate monochrome artwork conversion from color printing: dither only source artwork, preserve soft alpha coverage, skip transparent pixels when diffusing error, then composite the chosen background without dithering it. Opaque artwork's ink pattern is independent of background selection. Added flat colored-paper, stable ink-pattern, soft-edge, and opaque deduplication regression coverage. Maintainer visual sign-off remains pending.
+- [x] Separate monochrome artwork conversion from color printing: dither only source artwork, preserve soft alpha coverage, skip transparent pixels when diffusing error, then composite the chosen black/white background without dithering it. Opaque artwork's ink pattern is independent of background selection. Added flat-paper, stable ink-pattern, soft-edge, and opaque deduplication regression coverage. Maintainer visual sign-off remains pending.
+- [x] Restrict ink-sac backgrounds to pure black or white; all other colors require a Color Cartridge. Disable colored swatches with an ink sac, reject incompatible background/print requests on the server (including redstone), re-check supplies/preset at completion, and reject colored monochrome variants in the processor. Preserve an existing colored preset but block ink-sac printing until explicitly corrected; no supplies are consumed on rejection. The black swatch is pure `#000000`. Maintainer visual sign-off remains pending.
 - [ ] Run a release smoke test in a fresh instance on both client and dedicated server:
   - manual URL load and print;
   - invalid/oversized image rejection;
@@ -90,7 +94,7 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
   - no frame selector, no rendered decorative border, and no compatibility path for legacy saved data;
   - translated text loading.
 - [x] Update README, CHANGELOG, credits/license notes, and mod metadata for the 0.1.0 release contract. This is preparation, not publication approval; final art and exact-artifact smoke sign-off remain required.
-- [ ] Restore the final release artifact version to 0.1.0 after the current maintainer-selected 0.0.11 testing phase, then rebuild and record the final checksum.
+- [ ] Restore the final release artifact version to 0.1.0 after the current maintainer-selected 0.0.12 testing phase, then rebuild and record the final checksum.
 
 ### P1 — strong 0.1.0 candidates
 

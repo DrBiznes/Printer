@@ -6,7 +6,7 @@ import java.io.IOException;
 public final class ImageFailure extends IOException {
     public enum Reason {
         INVALID_URL, HOST_DENIED, HTTP_ERROR, TIMEOUT, TOO_LARGE, UNSUPPORTED, DIMENSIONS,
-        STORAGE_FULL, NO_IMAGE, NO_SUPPLIES, SUPPLIES_CHANGED, MISSING_DATA, BUSY,
+        STORAGE_FULL, NO_IMAGE, NO_SUPPLIES, SUPPLIES_CHANGED, MISSING_DATA, BUSY, MONOCHROME_BACKGROUND,
         RATE_LIMIT, UPLOAD_DISABLED, INVALID_TRANSFER, CANCELLED, INVALID_MENU, READ_FAILED, PROCESSING;
 
         public String key() { return "message.printer.error." + name().toLowerCase(java.util.Locale.ROOT); }
