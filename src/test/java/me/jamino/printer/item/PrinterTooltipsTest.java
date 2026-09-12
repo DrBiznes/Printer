@@ -3,7 +3,7 @@ package me.jamino.printer.item;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.jamino.printer.data.ImageReference;
-import me.jamino.printer.data.PrintFrame;
+import net.minecraft.ChatFormatting;
 import me.jamino.printer.data.PrintMode;
 import me.jamino.printer.registry.ModDataComponents;
 import me.jamino.printer.registry.ModItems;
@@ -36,11 +36,9 @@ class PrinterTooltipsTest {
     @ValueSource(booleans = {false, true})
     void registeredPrinterExplainsWorkflowAndAutomationOnlyOnShift(boolean expanded) throws Exception {
         var tooltip = tooltip(new ItemStack(ModItems.PRINTER.get()), expanded);
-        assertHas(tooltip, "item.printer.printer.summary");
+        assertHas(tooltip, "item.printer.printer.tooltip.summary");
         assertEquals(!expanded, has(tooltip, HINT));
-        for (String detail : List.of("workflow", "paper", "ink", "output", "hoppers", "extraction", "redstone", "busy")) {
-            assertEquals(expanded, has(tooltip, "item.printer.printer." + detail), detail);
-        }
+        assertDetails(tooltip, "printer", 3, 6, expanded);
     }
 
     @ParameterizedTest
@@ -52,10 +50,9 @@ class PrinterTooltipsTest {
             var tooltip = tooltip(cartridge, expanded);
             assertArrayEquals(new Object[]{remaining}, translated(tooltip,
                     "item.printer.color_cartridge.charges").getArgs());
-            assertHas(tooltip, "item.printer.color_cartridge.summary");
+            assertHas(tooltip, "item.printer.color_cartridge.tooltip.summary");
             assertEquals(!expanded, has(tooltip, HINT));
-            assertEquals(expanded, has(tooltip, "item.printer.color_cartridge.insert"));
-            assertEquals(expanded, has(tooltip, "item.printer.color_cartridge.usage"));
+            assertDetails(tooltip, "color_cartridge", 1, 2, expanded);
         }
     }
 
@@ -64,9 +61,10 @@ class PrinterTooltipsTest {
     void blankImageExplainsThatItCannotBePlaced(boolean expanded) throws Exception {
         var tooltip = tooltip(new ItemStack(ModItems.IMAGE.get()), expanded);
         assertHas(tooltip, "item.printer.image.unprinted");
-        assertFalse(has(tooltip, "item.printer.image.place"));
-        assertFalse(has(tooltip, "item.printer.image.dimensions"));
-        assertEquals(expanded, has(tooltip, "item.printer.image.unprinted_help"));
+        assertHas(tooltip, "item.printer.image.tooltip.summary");
+        assertFalse(has(tooltip, "item.printer.image.tooltip.behaviour3"));
+        assertEquals(expanded, has(tooltip, "item.printer.image.tooltip.condition1"));
+        assertEquals(expanded, has(tooltip, "item.printer.image.tooltip.behaviour1"));
         assertEquals(!expanded, has(tooltip, HINT));
     }
 
@@ -75,10 +73,10 @@ class PrinterTooltipsTest {
     void printedImageHasTitleAndPlacementWithAccurateExpandedMetadata(String title) throws Exception {
         String contentId = "ab".repeat(32);
         for (PrintMode mode : PrintMode.values()) {
-            for (PrintFrame frame : PrintFrame.values()) {
+            for (int background : new int[]{0xFFFFFF, 0x000000, 0x224466}) {
                 ItemStack image = new ItemStack(ModItems.IMAGE.get());
                 image.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(
-                        contentId, 320, 160, 4, 2, title, mode, frame, 3000, 1500));
+                        contentId, 320, 160, 4, 2, title, mode, background, 3000, 1500));
                 for (boolean expanded : new boolean[]{false, true}) {
                     var tooltip = tooltip(image, expanded);
                     Component displayedTitle = (Component) translated(tooltip, "item.printer.image.title").getArgs()[0];
@@ -88,33 +86,37 @@ class PrinterTooltipsTest {
                     } else {
                         assertEquals(title, displayedTitle.getString());
                     }
-                    assertHas(tooltip, "item.printer.image.place");
+                    assertHas(tooltip, "item.printer.image.tooltip.summary");
                     assertEquals(!expanded, has(tooltip, HINT));
-                    assertEquals(expanded, has(tooltip, "item.printer.image.dimensions"));
+                    assertEquals(expanded, has(tooltip, "item.printer.image.tooltip.behaviour3"));
                     if (expanded) {
-                        assertArrayEquals(new Object[]{3000, 1500}, translated(tooltip, "item.printer.image.source").getArgs());
-                        assertArrayEquals(new Object[]{320, 160}, translated(tooltip, "item.printer.image.dimensions").getArgs());
-                        assertArrayEquals(new Object[]{4, 2}, translated(tooltip, "item.printer.image.blocks").getArgs());
-                        Component frameName = (Component) translated(tooltip, "item.printer.image.frame").getArgs()[0];
-                        assertEquals("gui.printer.frame." + frame.getSerializedName(),
-                                ((TranslatableContents) frameName.getContents()).getKey());
-                        assertHas(tooltip, "item.printer.image.mode." + mode.getSerializedName());
-                        assertHas(tooltip, "item.printer.image.placement_help");
+                        assertArrayEquals(new Object[]{3000, 1500}, translated(tooltip, "item.printer.image.tooltip.behaviour2").getArgs());
+                        assertArrayEquals(new Object[]{320, 160}, translated(tooltip, "item.printer.image.tooltip.behaviour3").getArgs());
+                        assertArrayEquals(new Object[]{4, 2}, translated(tooltip, "item.printer.image.tooltip.behaviour4").getArgs());
+                        assertArrayEquals(new Object[]{String.format(java.util.Locale.ROOT, "#%06X", background)},
+                                translated(tooltip, "item.printer.image.tooltip.behaviour5").getArgs());
+                        Component modeName = (Component) translated(tooltip, "item.printer.image.tooltip.behaviour6").getArgs()[0];
+                        assertEquals("gui.printer.mode." + mode.getSerializedName(),
+                                ((TranslatableContents) modeName.getContents()).getKey());
+                        assertHas(tooltip, "item.printer.image.tooltip.behaviour7");
+                        assertHas(tooltip, "item.printer.image.tooltip.behaviour8");
                     }
                     assertFalse(tooltip.toString().contains(contentId), "Internal image IDs must not appear in help");
+                    assertFalse(tooltip.toString().contains("gui.printer.frame"));
                 }
             }
         }
     }
 
     @Test
-    void legacyPrintedImageUsesUnknownSourceInsteadOfMislabelingTexturePixels() throws Exception {
-        ItemStack image = new ItemStack(ModItems.IMAGE.get());
-        image.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference("a".repeat(64),
-                128, 128, 1, 1, "Old print", PrintMode.COLOR, PrintFrame.NONE));
-        var tooltip = tooltip(image, true);
-        assertHas(tooltip, "item.printer.image.source_unknown");
-        assertFalse(has(tooltip, "item.printer.image.source"));
+    void conditionHeadingsUseGoldAndBehaviourLinesUseGrayWithoutClientClasses() throws Exception {
+        var tooltip = tooltip(new ItemStack(ModItems.PRINTER.get()), true);
+        for (var component : tooltip) {
+            if (component.getContents() instanceof TranslatableContents contents) {
+                if (contents.getKey().contains(".condition")) assertEquals(ChatFormatting.GOLD.getColor(), component.getStyle().getColor().getValue());
+                if (contents.getKey().contains(".behaviour")) assertEquals(ChatFormatting.GRAY.getColor(), component.getStyle().getColor().getValue());
+            }
+        }
     }
 
     @Test
@@ -157,6 +159,11 @@ class PrinterTooltipsTest {
     private static boolean has(List<Component> tooltip, String key) {
         return tooltip.stream().anyMatch(component -> component.getContents() instanceof TranslatableContents contents
                 && contents.getKey().equals(key));
+    }
+
+    private static void assertDetails(List<Component> tooltip, String item, int conditions, int behaviours, boolean expanded) {
+        for (int i = 1; i <= conditions; i++) assertEquals(expanded, has(tooltip, "item.printer." + item + ".tooltip.condition" + i));
+        for (int i = 1; i <= behaviours; i++) assertEquals(expanded, has(tooltip, "item.printer." + item + ".tooltip.behaviour" + i));
     }
 
     private static void assertHas(List<Component> tooltip, String key) {

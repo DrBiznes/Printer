@@ -48,7 +48,7 @@ public final class PrinterGameTests {
 
     private static byte[] png() {
         try {
-            BufferedImage image = new BufferedImage(32, 16, BufferedImage.TYPE_INT_RGB);
+            BufferedImage image = new BufferedImage(32, 16, BufferedImage.TYPE_INT_ARGB);
             image.setRGB(2, 3, 0xFFFF0000);
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             ImageIO.write(image, "png", bytes);
@@ -118,9 +118,19 @@ public final class PrinterGameTests {
             helper.assertTrue(done(player, "load"), "Successful upload awards load");
             helper.assertFalse(done(player, "print"), "Loading must not award print");
             helper.assertValueEqual(printer.getPreset().orElseThrow().originalWidth(), 32, "Source width");
+            helper.assertValueEqual(printer.getPreset().orElseThrow().backgroundColor(), ImageReference.DEFAULT_BACKGROUND_COLOR, "New preset defaults to white");
+            PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x224466);
+            PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), -1);
+            PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x1000000);
+            helper.assertValueEqual(printer.getPreset().orElseThrow().backgroundColor(), 0x224466, "Invalid colors cannot change the preset");
+            PrinterJobService.requestResize(helper.getLevel(), printer.getBlockPos(), 1);
+            helper.assertValueEqual(printer.getPreset().orElseThrow().backgroundColor(), 0x224466, "Resize retains background");
+            PrinterJobService.requestResize(helper.getLevel(), printer.getBlockPos(), -1);
             printer.setItem(0, new ItemStack(Items.PAPER, 3));
             printer.setItem(1, new ItemStack(ModItems.COLOR_CARTRIDGE.get()));
             PrinterJobService.requestPrint(helper.getLevel(), printer.getBlockPos(), player);
+            PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0xFFFFFF);
+            helper.assertValueEqual(printer.getPreset().orElseThrow().backgroundColor(), 0x224466, "Busy printer rejects color changes");
         }).thenWaitUntil(() -> helper.assertFalse(printer.isPrinting(), "Wait for printing"))
                 .thenExecute(() -> {
                     helper.assertTrue(printer.getItem(2).is(ModItems.IMAGE.get()), "Print output");
@@ -131,6 +141,11 @@ public final class PrinterGameTests {
                     helper.assertValueEqual(printer.getItem(1).getDamageValue(), 1, "One color charge");
                     var reference = printer.getItem(2).get(ModDataComponents.IMAGE_REFERENCE.get());
                     helper.assertValueEqual(reference.sourceWidth(), 32, "Output source metadata");
+                    helper.assertValueEqual(reference.backgroundColor(), 0x224466, "Output background metadata");
+                    try {
+                        var output = ImageProcessor.decodeChecked(ImageStore.getVariant(helper.getLevel().getServer(), reference.contentId()));
+                        helper.assertValueEqual(output.getRGB(0, 0), 0xFF224466, "Transparent source uses selected background");
+                    } catch (Exception error) { throw new RuntimeException(error); }
                     var wall = helper.absolutePos(new BlockPos(2, 2, 1));
                     helper.getLevel().setBlock(wall, Blocks.STONE.defaultBlockState(), 3);
                     player.setItemInHand(InteractionHand.MAIN_HAND, printer.getItem(2).copy());
@@ -146,6 +161,12 @@ public final class PrinterGameTests {
                     helper.assertValueEqual(restored.getPos(), display.getPos(), "Wall save/load position");
                     helper.assertValueEqual(restored.getPickResult().get(ModDataComponents.IMAGE_REFERENCE.get()), reference,
                             "Picked display metadata");
+                    helper.assertFalse(saved.contains("Frame"), "New entity save contains no frame metadata");
+                    display.dropItem(null);
+                    var drops = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                            display.getBoundingBox().inflate(2));
+                    helper.assertTrue(drops.stream().anyMatch(drop -> reference.equals(drop.getItem().get(ModDataComponents.IMAGE_REFERENCE.get()))),
+                            "Dropped wall Image retains background and metadata");
                     var frame = new net.minecraft.world.entity.decoration.ItemFrame(helper.getLevel(), wall.south(), Direction.SOUTH);
                     frame.setItem(printer.getItem(2).copy());
                     helper.assertValueEqual(frame.getItem().get(ModDataComponents.IMAGE_REFERENCE.get()), reference, "Item-frame metadata");
@@ -174,7 +195,7 @@ public final class PrinterGameTests {
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void jobIdentityAndSupplyModeCannotCrossReplacement(GameTestHelper helper) {
         var printer = machine(helper);
-        var preset = new PrinterPreset("a".repeat(64), "Preset", 32, 16, 1, 1, PrintFrame.OAK, 3000, 1500);
+        var preset = new PrinterPreset("a".repeat(64), "Preset", 32, 16, 1, 1, 0x224466, 3000, 1500);
         printer.setPreset(preset); printer.setItem(0, new ItemStack(Items.PAPER, 3));
         printer.setItem(1, new ItemStack(ModItems.COLOR_CARTRIDGE.get()));
         long job = printer.beginJob("gui.printer.status.printing");
@@ -196,7 +217,7 @@ public final class PrinterGameTests {
         try {
             var source = ImageProcessor.canonicalize(png());
             ImageStore.putSource(helper.getLevel().getServer(), source);
-            printer.setPreset(new PrinterPreset(source.contentId(), "Automatic", 32, 16, 1, 1, PrintFrame.OAK, 32, 16));
+            printer.setPreset(new PrinterPreset(source.contentId(), "Automatic", 32, 16, 1, 1, ImageReference.DEFAULT_BACKGROUND_COLOR, 32, 16));
         } catch (Exception error) { throw new RuntimeException(error); }
         helper.setBlock(MACHINE.above(), Blocks.HOPPER);
         helper.setBlock(MACHINE.west(), Blocks.HOPPER.defaultBlockState().setValue(net.minecraft.world.level.block.HopperBlock.FACING, Direction.EAST));

@@ -51,15 +51,17 @@ public final class ImageProcessor {
         return new ProcessedImage(hash(png), png, width, height, decoded.getWidth(), decoded.getHeight());
     }
 
-    public static ProcessedImage createVariant(byte[] sourcePng, int width, int height, PrintMode mode) throws IOException {
-        return createVariant(sourcePng, width, height, mode == PrintMode.MONOCHROME);
+    public static ProcessedImage createVariant(byte[] sourcePng, int width, int height, PrintMode mode, int backgroundColor) throws IOException {
+        return createVariant(sourcePng, width, height, mode == PrintMode.MONOCHROME, backgroundColor);
     }
 
-    static ProcessedImage createVariant(byte[] sourcePng, int width, int height, boolean monochrome) throws IOException {
+    static ProcessedImage createVariant(byte[] sourcePng, int width, int height, boolean monochrome, int backgroundColor) throws IOException {
         BufferedImage source = decodeChecked(sourcePng);
-        BufferedImage resized = resize(source, width, height);
-        if (monochrome) resized = monochrome(resized);
-        byte[] png = encodePng(resized);
+        BufferedImage artwork = resize(source, width, height);
+        // Ink conversion is independent of paper color. Otherwise colored paper
+        // becomes a noisy black/white pattern and changes the artwork's dithering.
+        if (monochrome) artwork = monochromeArtwork(artwork);
+        byte[] png = encodePng(composite(artwork, backgroundColor));
         return new ProcessedImage(hash(png), png, width, height);
     }
 
@@ -127,8 +129,7 @@ public final class ImageProcessor {
         BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = result.createGraphics();
         try {
-            graphics.setColor(Color.WHITE);
-            graphics.fillRect(0, 0, width, height);
+            // Canonical sources retain alpha. Only a print variant chooses paper color.
             graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             graphics.drawImage(source, 0, 0, width, height, null);
@@ -138,34 +139,55 @@ public final class ImageProcessor {
         return result;
     }
 
-    private static BufferedImage monochrome(BufferedImage source) {
+    private static BufferedImage composite(BufferedImage source, int backgroundColor) {
+        BufferedImage result = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = result.createGraphics();
+        try {
+            graphics.setColor(new Color(backgroundColor & 0xFFFFFF));
+            graphics.fillRect(0, 0, result.getWidth(), result.getHeight());
+            graphics.drawImage(source, 0, 0, null);
+        } finally {
+            graphics.dispose();
+        }
+        return result;
+    }
+
+    private static BufferedImage monochromeArtwork(BufferedImage source) {
         int width = source.getWidth();
         int height = source.getHeight();
+        int[] pixels = source.getRGB(0, 0, width, height, null, 0, width);
         float[] luminance = new float[width * height];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int rgb = source.getRGB(x, y);
-                luminance[x + y * width] = 0.2126F * ((rgb >> 16) & 255)
-                        + 0.7152F * ((rgb >> 8) & 255) + 0.0722F * (rgb & 255);
-            }
+        for (int index = 0; index < pixels.length; index++) {
+            int rgb = pixels[index];
+            luminance[index] = 0.2126F * ((rgb >> 16) & 255)
+                    + 0.7152F * ((rgb >> 8) & 255) + 0.0722F * (rgb & 255);
         }
-        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int index = x + y * width;
+                int alpha = pixels[index] >>> 24;
+                // Transparent pixels are paper, not artwork: their hidden RGB
+                // must neither produce ink nor carry error into another region.
+                if (alpha == 0) continue;
                 float oldValue = luminance[index];
                 int value = oldValue < 128F ? 0 : 255;
-                result.setRGB(x, y, value == 0 ? 0xFF000000 : 0xFFFFFFFF);
-                float error = oldValue - value;
-                if (x + 1 < width) luminance[index + 1] += error * 7F / 16F;
+                result.setRGB(x, y, alpha << 24 | (value == 0 ? 0 : 0xFFFFFF));
+                // Keep soft cutout edges; faint coverage contributes less error.
+                float error = (oldValue - value) * (alpha / 255F);
+                if (x + 1 < width) diffuseArtworkError(luminance, pixels, index + 1, error * 7F / 16F);
                 if (y + 1 < height) {
-                    if (x > 0) luminance[index + width - 1] += error * 3F / 16F;
-                    luminance[index + width] += error * 5F / 16F;
-                    if (x + 1 < width) luminance[index + width + 1] += error / 16F;
+                    if (x > 0) diffuseArtworkError(luminance, pixels, index + width - 1, error * 3F / 16F);
+                    diffuseArtworkError(luminance, pixels, index + width, error * 5F / 16F);
+                    if (x + 1 < width) diffuseArtworkError(luminance, pixels, index + width + 1, error / 16F);
                 }
             }
         }
         return result;
+    }
+
+    private static void diffuseArtworkError(float[] luminance, int[] pixels, int index, float error) {
+        if ((pixels[index] >>> 24) != 0) luminance[index] += error;
     }
 
     private static byte[] encodePng(BufferedImage image) throws IOException {

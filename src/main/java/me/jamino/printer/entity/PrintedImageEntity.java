@@ -1,7 +1,6 @@
 package me.jamino.printer.entity;
 
 import me.jamino.printer.data.ImageReference;
-import me.jamino.printer.data.PrintFrame;
 import me.jamino.printer.data.PrintMode;
 import me.jamino.printer.registry.ModDataComponents;
 import me.jamino.printer.registry.ModItems;
@@ -46,8 +45,8 @@ public final class PrintedImageEntity extends HangingEntity {
             PrintedImageEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> MONOCHROME = SynchedEntityData.defineId(
             PrintedImageEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<String> FRAME = SynchedEntityData.defineId(
-            PrintedImageEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Integer> BACKGROUND_COLOR = SynchedEntityData.defineId(
+            PrintedImageEntity.class, EntityDataSerializers.INT);
 
     public PrintedImageEntity(EntityType<? extends PrintedImageEntity> type, Level level) {
         super(type, level);
@@ -71,7 +70,7 @@ public final class PrintedImageEntity extends HangingEntity {
         builder.define(SOURCE_WIDTH, 0);
         builder.define(SOURCE_HEIGHT, 0);
         builder.define(MONOCHROME, false);
-        builder.define(FRAME, PrintFrame.NONE.getSerializedName());
+        builder.define(BACKGROUND_COLOR, ImageReference.DEFAULT_BACKGROUND_COLOR);
     }
 
     @Override
@@ -90,7 +89,7 @@ public final class PrintedImageEntity extends HangingEntity {
         entityData.set(BLOCKS_WIDE, reference.blocksWide());
         entityData.set(BLOCKS_HIGH, reference.blocksHigh());
         entityData.set(MONOCHROME, reference.mode() == PrintMode.MONOCHROME);
-        entityData.set(FRAME, reference.frame().getSerializedName());
+        entityData.set(BACKGROUND_COLOR, reference.backgroundColor());
         recalculateBoundingBox();
     }
 
@@ -99,7 +98,7 @@ public final class PrintedImageEntity extends HangingEntity {
                 entityData.get(PIXEL_HEIGHT), entityData.get(BLOCKS_WIDE), entityData.get(BLOCKS_HIGH),
                 entityData.get(TITLE),
                 entityData.get(MONOCHROME) ? PrintMode.MONOCHROME : PrintMode.COLOR,
-                PrintFrame.byName(entityData.get(FRAME)), entityData.get(SOURCE_WIDTH), entityData.get(SOURCE_HEIGHT));
+                entityData.get(BACKGROUND_COLOR), entityData.get(SOURCE_WIDTH), entityData.get(SOURCE_HEIGHT));
     }
 
     public int blocksWide() { return getReference().blocksWide(); }
@@ -131,7 +130,7 @@ public final class PrintedImageEntity extends HangingEntity {
         tag.putInt("BlocksWide", reference.blocksWide());
         tag.putInt("BlocksHigh", reference.blocksHigh());
         tag.putBoolean("Monochrome", reference.mode() == PrintMode.MONOCHROME);
-        tag.putString("Frame", reference.frame().getSerializedName());
+        tag.putInt("BackgroundColor", reference.backgroundColor());
         tag.putByte("Facing", (byte) direction.get2DDataValue());
         super.addAdditionalSaveData(tag);
     }
@@ -142,7 +141,7 @@ public final class PrintedImageEntity extends HangingEntity {
                 tag.getInt("PixelHeight"), tag.getInt("BlocksWide"), tag.getInt("BlocksHigh"),
                 tag.getString("Title"),
                 tag.getBoolean("Monochrome") ? PrintMode.MONOCHROME : PrintMode.COLOR,
-                PrintFrame.byName(tag.getString("Frame")), tag.getInt("SourceWidth"), tag.getInt("SourceHeight")));
+                tag.getInt("BackgroundColor"), tag.getInt("SourceWidth"), tag.getInt("SourceHeight")));
         direction = Direction.from2DDataValue(tag.getByte("Facing"));
         super.readAdditionalSaveData(tag);
         setDirection(direction);

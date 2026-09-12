@@ -29,6 +29,12 @@ class TranslationAndAdvancementTest {
         }
     }
 
+    @Test void backgroundPaletteUsesResolvedVanillaColorNames() {
+        for (var color : net.minecraft.world.item.DyeColor.values()) {
+            assertTrue(net.minecraft.locale.Language.getInstance().has("color.minecraft." + color.getName()), color.getName());
+        }
+    }
+
     @Test void allAdvancementsDecodeAndMatchOnlyTheirServerAction() throws Exception {
         var language = read("/assets/printer/lang/en_us.json");
         var ops = RegistryOps.create(JsonOps.INSTANCE, VanillaRegistries.createLookup());

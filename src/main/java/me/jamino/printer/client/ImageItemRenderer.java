@@ -7,15 +7,12 @@ import me.jamino.printer.registry.ModDataComponents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
 public final class ImageItemRenderer extends BlockEntityWithoutLevelRenderer {
     private static final ResourceLocation PLACEHOLDER = me.jamino.printer.Printer.id("textures/item/image.png");
-    private static final ResourceLocation CANVAS = ResourceLocation.withDefaultNamespace(
-            "textures/block/white_concrete.png");
 
     public ImageItemRenderer() {
         super(Minecraft.getInstance().getBlockEntityRenderDispatcher(), Minecraft.getInstance().getEntityModels());
@@ -42,31 +39,10 @@ public final class ImageItemRenderer extends BlockEntityWithoutLevelRenderer {
         poseStack.pushPose();
         poseStack.translate(0.0F, 0.0F, 0.5F);
         PoseStack.Pose pose = poseStack.last();
-        boolean framed = reference != null && reference.frame().isPresent();
-        float border = framed ? Math.min(1.0F / 16.0F, Math.min(width, height) * 0.2F) : 0.0F;
-        if (framed) {
-            drawQuad(buffers, CANVAS, pose, x0, y0, x1, y1, 0.0F,
-                    packedLight, packedOverlay);
-            drawQuad(buffers, reference.frame().texture(), pose, x0, y0, x1, y0 + border, 0.003F,
-                    packedLight, packedOverlay);
-            drawQuad(buffers, reference.frame().texture(), pose, x0, y1 - border, x1, y1, 0.003F,
-                    packedLight, packedOverlay);
-            drawQuad(buffers, reference.frame().texture(), pose, x0, y0, x0 + border, y1, 0.003F,
-                    packedLight, packedOverlay);
-            drawQuad(buffers, reference.frame().texture(), pose, x1 - border, y0, x1, y1, 0.003F,
-                    packedLight, packedOverlay);
-        }
         VertexConsumer image = buffers.getBuffer(PrinterRenderTypes.smoothImage(texture));
-        quad(image, pose, x0 + border, y0 + border, x1 - border, y1 - border, 0.001F,
+        quad(image, pose, x0, y0, x1, y1, 0.001F,
                 packedLight, packedOverlay);
         poseStack.popPose();
-    }
-
-    private static void drawQuad(MultiBufferSource buffers, ResourceLocation texture, PoseStack.Pose pose,
-                                 float x0, float y0, float x1, float y1, float z,
-                                 int light, int overlay) {
-        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
-        quad(consumer, pose, x0, y0, x1, y1, z, light, overlay);
     }
 
     private static void quad(VertexConsumer consumer, PoseStack.Pose pose,

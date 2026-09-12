@@ -13,6 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.HashMap;
 
 public final class ClientImageCache {
     private static final ImageTransfers ASSEMBLIES = new ImageTransfers();

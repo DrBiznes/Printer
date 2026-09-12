@@ -82,7 +82,7 @@ public final class PrinterJobService {
             int maximumAutoEdge = Math.min(Config.SERVER.autoSizeMaxBlocks.get(), Config.SERVER.maxPlacementBlocks.get());
             ImageSizing.Size size = ImageSizing.automatic(source.width(), source.height(), maximumAutoEdge);
             printer.setPreset(new PrinterPreset(source.contentId(), title, source.width(), source.height(),
-                    size.width(), size.height(), PrintFrame.OAK, source.originalWidth(), source.originalHeight()));
+                    size.width(), size.height(), ImageReference.DEFAULT_BACKGROUND_COLOR, source.originalWidth(), source.originalHeight()));
             if (printer.getOwner() == null) printer.setOwner(player.getUUID());
             printer.setJobState(false, "gui.printer.status.ready");
             ModCriteria.ACTION.get().trigger(player, "load");
@@ -104,15 +104,15 @@ public final class PrinterJobService {
         int edge = Math.clamp(Math.max(preset.blocksWide(), preset.blocksHigh()) + change, 1, Config.SERVER.maxPlacementBlocks.get());
         ImageSizing.Size size = ImageSizing.forLongEdge(preset.sourceWidth(), preset.sourceHeight(), edge);
         printer.setPreset(new PrinterPreset(preset.sourceId(), preset.title(), preset.sourceWidth(), preset.sourceHeight(),
-                size.width(), size.height(), preset.frame(), preset.originalWidth(), preset.originalHeight()));
+                size.width(), size.height(), preset.backgroundColor(), preset.originalWidth(), preset.originalHeight()));
     }
 
-    public static void requestFrame(ServerLevel level, BlockPos pos, int change) {
+    public static void requestBackground(ServerLevel level, BlockPos pos, int color) {
         if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) || printer.isPrinting()) return;
         PrinterPreset preset = printer.getPreset().orElse(null);
-        if (preset == null || (change != -1 && change != 1)) return;
+        if (preset == null || color < 0 || color > 0xFFFFFF) return;
         printer.setPreset(new PrinterPreset(preset.sourceId(), preset.title(), preset.sourceWidth(), preset.sourceHeight(),
-                preset.blocksWide(), preset.blocksHigh(), preset.frame().next(change), preset.originalWidth(), preset.originalHeight()));
+                preset.blocksWide(), preset.blocksHigh(), color, preset.originalWidth(), preset.originalHeight()));
     }
 
     public static void requestPrint(ServerLevel level, BlockPos pos, ServerPlayer player) {
@@ -128,14 +128,14 @@ public final class PrinterJobService {
         ImageSizing.PixelSize size = ImageSizing.textureSize(preset.sourceWidth(), preset.sourceHeight(),
                 preset.blocksWide(), preset.blocksHigh());
         long job = printer.beginJob("gui.printer.status.printing");
-        submit(level, printer, job, () -> ImageProcessor.createVariant(source, size.width(), size.height(), mode), (variant, error) -> {
+        submit(level, printer, job, () -> ImageProcessor.createVariant(source, size.width(), size.height(), mode, preset.backgroundColor()), (variant, error) -> {
             if (!isCurrent(level, printer, job)) return;
             if (error != null) { fail(printer, player, ImageFailure.classify(error)); return; }
             if (!printer.matchesPrint(preset, mode)) { fail(printer, player, SUPPLIES_CHANGED); return; }
             if (!ImageStore.putVariant(level.getServer(), variant)) { fail(printer, player, STORAGE_FULL); return; }
             ItemStack output = new ItemStack(ModItems.IMAGE.get());
             output.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(variant.contentId(), variant.width(),
-                    variant.height(), preset.blocksWide(), preset.blocksHigh(), preset.title(), mode, preset.frame(),
+                    variant.height(), preset.blocksWide(), preset.blocksHigh(), preset.title(), mode, preset.backgroundColor(),
                     preset.originalWidth(), preset.originalHeight()));
             printer.consumeSupplies();
             printer.setOutput(output);

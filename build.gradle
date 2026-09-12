@@ -106,7 +106,11 @@ if (providers.gradleProperty('printerGameTests').isPresent()) {
     sourceSets.main.resources.srcDir 'src/gametest/resources'
     sourceSets.main.resources.srcDir 'src/test/resources'
 }
-neoForge.runs.gameTestServer.gameDirectory = project.file('build/gametest-run')
+neoForge.runs.gameTestServer.gameDirectory = project.file('build/gametest-0.1.0-run')
+// Never use existing development saves for release UI verification.
+if (providers.gradleProperty('printerSmokeClient').isPresent()) {
+    neoForge.runs.client.gameDirectory = project.file('build/smoke-client')
+}
 
 
 dependencies {
@@ -148,6 +152,11 @@ dependencies {
 
 tasks.named('test', Test) {
     useJUnitPlatform()
+}
+
+tasks.named('jar', Jar) {
+    from('LICENSE') { into 'META-INF' }
+    from('CREDITS.md') { into 'META-INF' }
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

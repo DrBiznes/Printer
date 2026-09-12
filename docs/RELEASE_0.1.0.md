@@ -1,6 +1,6 @@
 # Printer 0.1.0 release contract
 
-Status: 0.0.10 implementation is complete for the original feature set. The final 0.1.0 scope adds frame removal, selectable background fill color, tooltip formatting polish, final texture/GUI polish, and clean-instance release verification. 0.1.0 is an intentional pre-release breaking change and requires new worlds. This is not yet a release sign-off.
+Status: the no-frame/background-color feature contract is frozen. Functional implementation targets the 0.1.0 release candidate; texture refinement and GUI texture changes are intentionally deferred to the final separate pass. Fresh-instance testing of the exact final JAR remains mandatory before publication. 0.1.0 is an intentional pre-release breaking change and requires new worlds. This is not a release sign-off.
 
 ## Compatibility policy
 
@@ -25,14 +25,17 @@ Printer has not had a public release yet, so 0.1.0 does not carry compatibility 
 | Download bytes | 10 MiB by default, configurable from 1–64 MiB. |
 | Processed PNG | At most 4 MiB per canonical source or print variant. |
 | Storage | 256 MiB by default, configurable from 16–4096 MiB, counted across encoded source and variant data. Sources and variants each deduplicate by SHA-256. Storage-full jobs fail; there is no automatic deletion of old prints. |
-| Timeouts | Configured fetch timeout 30 seconds by default, 5–120 permitted; connection timeout at most 15 seconds. End-to-end body timeout enforcement is an open hardening gate below. |
+| Timeouts | Configured end-to-end fetch/body timeout 30 seconds by default, 5–120 permitted; connection timeout at most 15 seconds. |
 | Physical size | Automatic long edge up to 4 blocks by default; manual long edge up to 8. Both are configurable within 1–8. Whole-block dimensions approximate source aspect ratio. |
 | Texture size | Up to 128 pixels per long-edge block, without upscaling the saved source. |
 | Supplies | One paper per occupied block and one cartridge charge (color) or ink sac (monochrome) per successful print. A fresh cartridge has three charges. |
 | Output | One Image item; output slot must be empty. Supplies are consumed when the job succeeds. |
 | Placement | Supported vertical wall with enough clearance, or ordinary Minecraft item frame. Printed wall displays always use no decorative border. Unprinted creative Image stacks cannot make wall displays. |
 | Preset | Saved source, title, size, and background color persist on the block and on the dropped Printer item. All 0.1.0 presets use no decorative border. Image data remains in the originating world's save. |
+| Background | Native 24-bit RGB, white (`#FFFFFF`) by default. The compact 16-swatch palette follows vanilla dye-color ordering inspired by Analog Audio, with pure white for the default. Sources preserve alpha. Color variants composite the original artwork; monochrome variants dither only artwork before compositing the selected background as a flat color. Transparent pixels do not participate in error diffusion, soft alpha edges retain their coverage, and opaque artwork's black/white pattern is independent of background choice. The placed entity's sides, back, and exposed canvas margins always use its saved background color, including for fully opaque images. Identical final PNG bytes deduplicate even if opaque sources make two color selections visually identical on the image face; entity canvas colors still follow each Image's metadata. No frame field or old metadata fallback is stored. |
 | Display cache | Requested images are sent in chunks of at most 256 KiB. The client verifies the content hash, expires incomplete transfers, and bounds in-flight assembly. Texture LRU budget defaults to 128 MiB, configurable from 16–1024 MiB. |
+
+Gallery requests permit a burst of 16, replenished at 10 requests per second. Response bytes permit a 32 MiB burst, replenished at 8 MiB per second per player; missing/rate-limited images can retry after the client's five-second deadline. These transport safeguards do not change the image, upload, storage, sizing, or automation limits.
 
 Local uploads use a 24 KiB client-to-server chunk protocol, one active transfer per player, a 64 MiB transfer ceiling, a 120-second deadline, cancellation/disconnect cleanup, and the server's existing decode, dimension, storage, and request limits. The server never receives or reads a client filesystem path.
 
@@ -65,13 +68,17 @@ The 0.0.10 implementation addressed the initial audit items:
 - The version and mappings are aligned to Minecraft 1.21.1 / NeoForge 21.1.248 for the current preparation build.
 - Advancements, translation-key coverage, local upload, automated tests, and regression coverage are implemented.
 
-## Remaining 0.1.0 implementation gates
+## Functional implementation completed for the candidate
 
-1. **Frame simplification:** remove the frame selector and active decorative-border rendering. All 0.1.0 prints must use `PrintFrame.NONE`; no old frame decoding or migration path is required.
-2. **Background color:** add a compact in-GUI palette, defaulting to white. Persist the selected color in the new 0.1.0 preset and Image metadata, apply it to transparent/empty pixels during variant generation, and include it in variant identity/deduplication. No old metadata fallback is required.
-3. **Tooltip presentation:** migrate the existing all-item tooltips to the Create/AnalogAudio-style summary, condition, and behaviour key structure, including translated emphasis and final no-frame/background details.
-4. **Art and GUI:** replace the rounded Image placeholder with simple 16×16 pixel art and replace the frame button with the background-color control.
-5. **Release verification:** run the full client/dedicated-server smoke matrix against the exact 0.1.0 artifact.
+1. **Frame simplification:** the selector, `PrintFrame` enum, frame metadata codecs, legacy lookup/cycling, and decorative-border renderer are deleted. All new prints are unconditionally borderless.
+2. **Background color:** a texture-independent two-row, 16-swatch in-GUI palette replaces the frame button. The selected RGB value persists through saves, dropped Printer items, Image components, placed/dropped entities, and networks. Canonical sources retain transparency; final variant content incorporates the selected background and remains SHA-256 verified.
+3. **Tooltip presentation:** every item uses translated `tooltip.summary`, `tooltip.conditionN`, and `tooltip.behaviourN` keys. Summaries remain visible; Shift reveals gold condition headings and gray behaviours. Image metadata reports background color and never frame data, source URLs, or internal IDs. The common keyboard bridge remains dedicated-server safe.
+4. **Packaging:** candidate metadata is 0.1.0, with the existing author edit retained. README recipes/support expectations, changelog, credits, translation instructions, and packaged MIT/third-party license notes are updated.
+
+## Remaining release gates
+
+1. **Art and GUI textures:** final 16×16 Image refinement and the block/cartridge/GUI/ghost-slot/fallback/status/control art pass are deferred at the maintainer's request. The functional palette does not alter PNG assets.
+2. **Release verification:** complete visual tooltip checks at normal and large GUI scales and the full client/dedicated-server smoke matrix against the exact final 0.1.0 JAR. Automated source-runtime checks are supplementary evidence, not a substitute for exact-artifact gameplay sign-off.
 
 ## Implementation path for the remaining P0 work
 
@@ -83,8 +90,8 @@ The 0.0.10 implementation addressed the initial audit items:
 | Tooltips | All three registered items, both Shift states, blank/printed Images, used/depleted cartridges, background color details, and the final Create/AnalogAudio-style formatting; no frame data is shown. |
 | Advancements | Server-side success triggers for obtain, load, print, place, and automated print. Decide automation credit/ownership explicitly; test failure and repeated-trigger cases. |
 | Localization | Replace literal job failures and audit GUI/config/advancement/entity text. Document contributor review and in-game validation. |
-| Safety regressions | Address the identity, supply, request, and downloader gaps above before expanding input types. Upload protocol tests are inapplicable while upload is deferred. |
+| Safety regressions | Unit and GameTest checks cover identity, supply, request budgets, downloads, upload validation/transfers, content hashes, and no-frame/background metadata. |
 | Smoke tests | Run [SMOKE_TEST_0.1.0.md](SMOKE_TEST_0.1.0.md) on fresh saves and the exact final artifact. |
-| Release packaging | Update changelog, README, credits/license review and metadata; bump to 0.1.0 only after release gates pass. Record artifact checksum and bug-report path. |
+| Release packaging | Candidate version is 0.1.0; the MIT license and credits ship under `META-INF`. Record the candidate checksum and [bug-report path](https://github.com/DrBiznes/Printer/issues). Do not publish until the separately deferred art pass and exact-artifact smoke gates pass. |
 
 Full Ponder scenes, Create scenes, extra frame profiles/materials, CC:Tweaked, version ports, and configurable ink economy are deferred until after 0.1.0. Background color and tooltip presentation are in scope for 0.1.0. Reopening scope requires updating this contract and its verification matrix before cutting a release.

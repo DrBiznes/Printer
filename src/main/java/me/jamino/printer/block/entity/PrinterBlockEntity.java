@@ -2,7 +2,6 @@ package me.jamino.printer.block.entity;
 
 import me.jamino.printer.block.PrinterBlock;
 import me.jamino.printer.data.PrinterPreset;
-import me.jamino.printer.data.PrintFrame;
 import me.jamino.printer.inventory.PrinterMenu;
 import me.jamino.printer.job.PrinterJobService;
 import me.jamino.printer.registry.ModBlockEntities;
@@ -216,7 +215,7 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
             tag.putInt("PresetSourceHeight", preset.sourceHeight());
             tag.putInt("PresetBlocksWide", preset.blocksWide());
             tag.putInt("PresetBlocksHigh", preset.blocksHigh());
-            tag.putString("PresetFrame", preset.frame().getSerializedName());
+            tag.putInt("PresetBackgroundColor", preset.backgroundColor());
             tag.putInt("PresetOriginalWidth", preset.originalWidth());
             tag.putInt("PresetOriginalHeight", preset.originalHeight());
         }
@@ -236,11 +235,11 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
                     ? ItemStack.parse(registries, tag.getCompound("Item" + i)).orElse(ItemStack.EMPTY)
                     : ItemStack.EMPTY);
         }
-        if (tag.contains("PresetSource")) {
+        if (tag.contains("PresetSource") && tag.contains("PresetBackgroundColor")) {
             preset = new PrinterPreset(tag.getString("PresetSource"), tag.getString("PresetTitle"),
                     tag.getInt("PresetSourceWidth"), tag.getInt("PresetSourceHeight"),
                     tag.getInt("PresetBlocksWide"), tag.getInt("PresetBlocksHigh"),
-                    PrintFrame.byName(tag.getString("PresetFrame")),
+                    tag.getInt("PresetBackgroundColor"),
                     tag.getInt("PresetOriginalWidth"), tag.getInt("PresetOriginalHeight"));
         } else {
             preset = null;
@@ -291,7 +290,7 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
         tag.remove("PresetSourceHeight");
         tag.remove("PresetBlocksWide");
         tag.remove("PresetBlocksHigh");
-        tag.remove("PresetFrame");
+        tag.remove("PresetBackgroundColor");
         tag.remove("PresetOriginalWidth");
         tag.remove("PresetOriginalHeight");
     }

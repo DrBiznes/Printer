@@ -1,8 +1,10 @@
 package me.jamino.printer.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import me.jamino.printer.Config;
 import me.jamino.printer.Printer;
 import me.jamino.printer.data.PrinterPreset;
+import me.jamino.printer.data.ImageReference;
 import me.jamino.printer.inventory.PrinterMenu;
 import me.jamino.printer.network.ModNetworking;
 import net.minecraft.Util;
@@ -13,13 +15,19 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.DyeColor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     private static final ResourceLocation PANEL = Printer.id("textures/gui/printer.png");
     private static final int CREAM = 0xFFF2E8CB;
     private EditBox url;
     private EditBox titleBox;
-    private PrinterButton smaller, larger, frame, load, print, browse;
+    private PrinterButton smaller, larger, load, print, browse;
+    private final List<PrinterColorButton> colors = new ArrayList<>();
     private final ClientFileUpload upload = new ClientFileUpload(this);
 
     public PrinterScreen(PrinterMenu menu, Inventory inventory, Component title) {
@@ -53,9 +61,23 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         larger.setTooltip(Tooltip.create(tr("larger")));
         print = key(100, 114, 44, 18, tr("print"), 0xFFAF653F,
                 button -> { upload.clearStatus(); ModNetworking.sendPrint(menu.getPos()); });
-        frame = key(154, 114, 92, 18, tr("frame.none"), 0xFF736C59,
-                button -> ModNetworking.sendCycleFrame(menu.getPos(), 1));
-        frame.setTooltip(Tooltip.create(tr("frame_help")));
+        colors.clear();
+        DyeColor[] palette = {DyeColor.WHITE, DyeColor.LIGHT_GRAY, DyeColor.GRAY, DyeColor.BLACK,
+                DyeColor.BROWN, DyeColor.RED, DyeColor.ORANGE, DyeColor.YELLOW,
+                DyeColor.LIME, DyeColor.GREEN, DyeColor.CYAN, DyeColor.LIGHT_BLUE,
+                DyeColor.BLUE, DyeColor.PURPLE, DyeColor.MAGENTA, DyeColor.PINK};
+        for (int i = 0; i < palette.length; i++) {
+            DyeColor dye = palette[i];
+            int color = dye == DyeColor.WHITE ? ImageReference.DEFAULT_BACKGROUND_COLOR : dye.getFireworkColor();
+            Component label = Component.translatable("gui.printer.background_option",
+                    Component.translatable("color.minecraft." + dye.getName()), String.format(Locale.ROOT, "#%06X", color));
+            var swatch = addRenderableWidget(new PrinterColorButton(leftPos + 159 + i % 8 * 11,
+                    topPos + 114 + i / 8 * 9, color, label,
+                    () -> preset() != null && preset().backgroundColor() == color,
+                    button -> ModNetworking.sendBackground(menu.getPos(), color)));
+            swatch.setTooltip(Tooltip.create(label));
+            colors.add(swatch);
+        }
         updateControls();
     }
 
@@ -96,8 +118,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         smaller.active = !busy && preset != null && Math.max(preset.blocksWide(), preset.blocksHigh()) > 1;
         larger.active = !busy && preset != null
                 && Math.max(preset.blocksWide(), preset.blocksHigh()) < Config.SERVER.maxPlacementBlocks.get();
-        frame.active = !busy && preset != null;
-        frame.setMessage(preset == null ? tr("frame.none") : tr("frame." + preset.frame().getSerializedName()));
+        colors.forEach(swatch -> swatch.active = !busy && preset != null);
         browse.setMessage(tr(upload.busy() ? "cancel" : "browse"));
         browse.active = upload.busy() || (!busy && Config.SERVER.allowLocalUploads.get());
         browse.setTooltip(Tooltip.create(Config.SERVER.allowLocalUploads.get() ? tr("browse_help")
@@ -152,7 +173,17 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         int x = leftPos + 192 + (48 - width) / 2;
         int y = topPos + 30 + (44 - height) / 2;
         graphics.fill(x - 1, y - 1, x + width + 1, y + height + 1, CREAM);
-        graphics.blit(texture, x, y, 0, 0, width, height, width, height);
+        graphics.fill(x, y, x + width, y + height, 0xFF000000 | preset.backgroundColor());
+        // Ordinary GUI texture blits do not enable alpha blending. Draw the
+        // background first, then composite the canonical RGBA source over it.
+        graphics.flush();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        try {
+            graphics.blit(texture, x, y, 0, 0, width, height, width, height);
+        } finally {
+            RenderSystem.disableBlend();
+        }
     }
 
     @Override
@@ -170,6 +201,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
                 : Component.translatable("gui.printer.block_dimensions", preset.blocksWide(), preset.blocksHigh()), 200, 96, CREAM);
         graphics.drawString(font, preset == null ? tr("paper_wait")
                 : Component.translatable("gui.printer.paper_cost", preset.requiredPaper()), 12, 118, 0xFF424C43, false);
+        graphics.drawString(font, tr("background_short"), 146, 119, 0xFF424C43, false);
         String status = menu.getPrinter() == null ? "gui.printer.empty" : menu.getPrinter().getStatusKey();
         graphics.drawString(font, font.plainSubstrByWidth((upload.status() == null ? Component.translatable(status) : upload.status()).getString(), 230),
                 12, 134, 0xFFBDE0CD, false);

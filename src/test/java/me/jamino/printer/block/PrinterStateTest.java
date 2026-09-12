@@ -19,7 +19,7 @@ class PrinterStateTest {
 
     @Test void syncKeepsBusyButDiskLoadInterruptsJobsAndPreservesPresetAndOwner() {
         var printer = printer(Direction.NORTH);
-        var preset = new PrinterPreset("a".repeat(64), "Photo", 512, 256, 4, 2, PrintFrame.OAK, 3000, 1500);
+        var preset = new PrinterPreset("a".repeat(64), "Photo", 512, 256, 4, 2, 0x224466, 3000, 1500);
         printer.setPreset(preset); printer.setOwner(java.util.UUID.randomUUID());
         long job = printer.beginJob("gui.printer.status.loading");
         var lookup = VanillaRegistries.createLookup();
@@ -60,7 +60,7 @@ class PrinterStateTest {
 
     @Test void emptyCartridgesCannotPrintAndModeChangesInvalidateCompletion() {
         var printer = printer(Direction.NORTH);
-        var preset = new PrinterPreset("a".repeat(64), "", 32, 16, 1, 1, PrintFrame.NONE);
+        var preset = new PrinterPreset("a".repeat(64), "", 32, 16, 1, 1, ImageReference.DEFAULT_BACKGROUND_COLOR, 32, 16);
         printer.setPreset(preset); printer.setItem(0, new ItemStack(Items.PAPER, 2));
         ItemStack cartridge = new ItemStack(ModItems.COLOR_CARTRIDGE.get());
         cartridge.setDamageValue(3); printer.setItem(1, cartridge);
@@ -70,6 +70,24 @@ class PrinterStateTest {
         printer.setItem(1, new ItemStack(Items.INK_SAC));
         assertFalse(printer.matchesPrint(preset, PrintMode.COLOR));
         assertTrue(printer.matchesPrint(preset, PrintMode.MONOCHROME));
+    }
+
+    @Test void droppedPrinterComponentRetainsBackgroundAndDoesNotDuplicatePresetNbt() {
+        var printer = printer(Direction.NORTH);
+        var preset = new PrinterPreset("a".repeat(64), "Color", 32, 16, 1, 1, 0x123456, 32, 16);
+        printer.setPreset(preset);
+        var stack = new ItemStack(ModItems.PRINTER.get());
+        printer.copyPresetToItem(stack);
+        var restored = printer(Direction.NORTH);
+        restored.restorePresetFromItem(stack);
+        assertEquals(preset, restored.getPreset().orElseThrow());
+        var lookup = VanillaRegistries.createLookup();
+        var nbt = printer.saveWithoutMetadata(lookup);
+        assertEquals(0x123456, nbt.getInt("PresetBackgroundColor"));
+        assertFalse(nbt.contains("PresetFrame"));
+        printer.removeComponentsFromTag(nbt);
+        assertFalse(nbt.contains("PresetBackgroundColor"));
+        assertFalse(nbt.contains("PresetSource"));
     }
 
 }

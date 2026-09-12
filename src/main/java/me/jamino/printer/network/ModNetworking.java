@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 public final class ModNetworking {
     public static Consumer<ImageChunkPayload> CLIENT_IMAGE_CHUNK_HANDLER = payload -> {};
     public static Consumer<UploadReplyPayload> CLIENT_UPLOAD_REPLY_HANDLER = payload -> {};
-    private static final me.jamino.printer.job.RequestThrottle IMAGE_REQUESTS = new me.jamino.printer.job.RequestThrottle();
+    private static final ImageRequestBudget IMAGE_REQUESTS = new ImageRequestBudget();
     public static void clearPlayer(java.util.UUID player) { IMAGE_REQUESTS.remove(player); }
     public static void clearRequests() { IMAGE_REQUESTS.clear(); }
     public static boolean canUsePrinter(ServerPlayer player, BlockPos pos) {
@@ -33,7 +33,7 @@ public final class ModNetworking {
     private ModNetworking() {}
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("4");
+        PayloadRegistrar registrar = event.registrar("5");
         registrar.playToServer(LoadImagePayload.TYPE, LoadImagePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
@@ -48,11 +48,11 @@ public final class ModNetworking {
                         PrinterJobService.requestResize(level, payload.pos(), payload.change());
                     }
                 }));
-        registrar.playToServer(CycleFramePayload.TYPE, CycleFramePayload.STREAM_CODEC, (payload, context) ->
+        registrar.playToServer(SetBackgroundPayload.TYPE, SetBackgroundPayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
                             && canUsePrinter(player, payload.pos()) && player.level() instanceof ServerLevel level) {
-                        PrinterJobService.requestFrame(level, payload.pos(), payload.change());
+                        PrinterJobService.requestBackground(level, payload.pos(), payload.color());
                     }
                 }));
         registrar.playToServer(PrintPayload.TYPE, PrintPayload.STREAM_CODEC, (payload, context) ->
@@ -65,7 +65,7 @@ public final class ModNetworking {
         registrar.playToServer(RequestImagePayload.TYPE, RequestImagePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (!(context.player() instanceof ServerPlayer player) || !payload.contentId().matches("[0-9a-f]{64}")) return;
-                    if (!IMAGE_REQUESTS.acquire(player.getUUID(), System.nanoTime(), 100_000_000L)) return;
+                    if (!IMAGE_REQUESTS.acquire(player.getUUID(), 0, System.nanoTime())) return;
                     byte[] png = me.jamino.printer.image.ImageStore.getVariant(player.getServer(), payload.contentId());
                     // A source preview is only available through the open printer.
                     if (png == null && player.containerMenu instanceof PrinterMenu menu
@@ -74,10 +74,11 @@ public final class ModNetworking {
                         png = me.jamino.printer.image.ImageStore.getSource(player.getServer(), payload.contentId());
                     }
                     if (png == null) {
-                        Printer.LOGGER.debug("No stored printer variant found for client request {}", payload.contentId());
+                        Printer.LOGGER.debug("No stored printer image found for client request");
                         return;
                     }
-                    sendImage(player, payload.contentId(), png);
+                    if (IMAGE_REQUESTS.acquire(player.getUUID(), png.length, System.nanoTime()))
+                        sendImage(player, payload.contentId(), png);
                 }));
         registrar.playToServer(BeginUploadPayload.TYPE, BeginUploadPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
@@ -105,8 +106,8 @@ public final class ModNetworking {
         PacketDistributor.sendToServer(new ResizePresetPayload(pos, change));
     }
 
-    public static void sendCycleFrame(BlockPos pos, int change) {
-        PacketDistributor.sendToServer(new CycleFramePayload(pos, change));
+    public static void sendBackground(BlockPos pos, int color) {
+        PacketDistributor.sendToServer(new SetBackgroundPayload(pos, color));
     }
 
     public static void sendPrint(BlockPos pos) {
@@ -146,12 +147,12 @@ public final class ModNetworking {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record CycleFramePayload(BlockPos pos, int change) implements CustomPacketPayload {
-        public static final Type<CycleFramePayload> TYPE = new Type<>(Printer.id("cycle_frame"));
-        public static final StreamCodec<FriendlyByteBuf, CycleFramePayload> STREAM_CODEC = StreamCodec.composite(
-                BlockPos.STREAM_CODEC, CycleFramePayload::pos,
-                ByteBufCodecs.VAR_INT, CycleFramePayload::change,
-                CycleFramePayload::new);
+    public record SetBackgroundPayload(BlockPos pos, int color) implements CustomPacketPayload {
+        public static final Type<SetBackgroundPayload> TYPE = new Type<>(Printer.id("set_background"));
+        public static final StreamCodec<FriendlyByteBuf, SetBackgroundPayload> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, SetBackgroundPayload::pos,
+                ByteBufCodecs.VAR_INT, SetBackgroundPayload::color,
+                SetBackgroundPayload::new);
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 

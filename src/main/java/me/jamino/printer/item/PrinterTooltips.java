@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 /** Shared tooltip text; keyboard access is installed only by the client. */
@@ -24,16 +25,17 @@ public final class PrinterTooltips {
     }
 
     public static void appendPrinter(List<Component> tooltip, boolean expanded) {
-        tooltip.add(line("item.printer.printer.summary"));
+        tooltip.add(line("item.printer.printer.tooltip.summary"));
         if (expanded) {
-            tooltip.add(line("item.printer.printer.workflow"));
-            tooltip.add(line("item.printer.printer.paper"));
-            tooltip.add(line("item.printer.printer.ink"));
-            tooltip.add(line("item.printer.printer.output"));
-            tooltip.add(line("item.printer.printer.hoppers"));
-            tooltip.add(line("item.printer.printer.extraction"));
-            tooltip.add(line("item.printer.printer.redstone"));
-            tooltip.add(line("item.printer.printer.busy"));
+            condition(tooltip, "printer", 1);
+            behaviour(tooltip, "printer", 1);
+            behaviour(tooltip, "printer", 2);
+            condition(tooltip, "printer", 2);
+            behaviour(tooltip, "printer", 3);
+            behaviour(tooltip, "printer", 4);
+            condition(tooltip, "printer", 3);
+            behaviour(tooltip, "printer", 5);
+            behaviour(tooltip, "printer", 6);
         } else {
             appendHint(tooltip);
         }
@@ -41,20 +43,23 @@ public final class PrinterTooltips {
 
     public static void appendCartridge(List<Component> tooltip, int charges, boolean expanded) {
         tooltip.add(line("item.printer.color_cartridge.charges", Math.max(0, charges)));
-        tooltip.add(line("item.printer.color_cartridge.summary"));
+        tooltip.add(line("item.printer.color_cartridge.tooltip.summary"));
         if (expanded) {
-            tooltip.add(line("item.printer.color_cartridge.insert"));
-            tooltip.add(line("item.printer.color_cartridge.usage"));
+            condition(tooltip, "color_cartridge", 1);
+            behaviour(tooltip, "color_cartridge", 1);
+            behaviour(tooltip, "color_cartridge", 2);
         } else {
             appendHint(tooltip);
         }
     }
 
     public static void appendImage(List<Component> tooltip, @Nullable ImageReference reference, boolean expanded) {
+        tooltip.add(line("item.printer.image.tooltip.summary"));
         if (reference == null) {
             tooltip.add(line("item.printer.image.unprinted"));
             if (expanded) {
-                tooltip.add(line("item.printer.image.unprinted_help"));
+                condition(tooltip, "image", 1);
+                behaviour(tooltip, "image", 1);
             } else {
                 appendHint(tooltip);
             }
@@ -63,17 +68,16 @@ public final class PrinterTooltips {
         Component title = reference.title().isBlank()
                 ? Component.translatable("item.printer.image.untitled") : Component.literal(reference.title());
         tooltip.add(Component.translatable("item.printer.image.title", title).withStyle(ChatFormatting.GOLD));
-        tooltip.add(line("item.printer.image.place"));
         if (expanded) {
-            tooltip.add(reference.sourceWidth() > 0 && reference.sourceHeight() > 0
-                    ? line("item.printer.image.source", reference.sourceWidth(), reference.sourceHeight())
-                    : line("item.printer.image.source_unknown"));
-            tooltip.add(line("item.printer.image.dimensions", reference.pixelWidth(), reference.pixelHeight()));
-            tooltip.add(line("item.printer.image.blocks", reference.blocksWide(), reference.blocksHigh()));
-            tooltip.add(line("item.printer.image.frame",
-                    Component.translatable("gui.printer.frame." + reference.frame().getSerializedName())));
-            tooltip.add(line("item.printer.image.mode." + reference.mode().getSerializedName()));
-            tooltip.add(line("item.printer.image.placement_help"));
+            condition(tooltip, "image", 2);
+            behaviour(tooltip, "image", 2, reference.sourceWidth(), reference.sourceHeight());
+            behaviour(tooltip, "image", 3, reference.pixelWidth(), reference.pixelHeight());
+            behaviour(tooltip, "image", 4, reference.blocksWide(), reference.blocksHigh());
+            behaviour(tooltip, "image", 5, String.format(Locale.ROOT, "#%06X", reference.backgroundColor()));
+            behaviour(tooltip, "image", 6, Component.translatable("gui.printer.mode." + reference.mode().getSerializedName()));
+            condition(tooltip, "image", 3);
+            behaviour(tooltip, "image", 7);
+            behaviour(tooltip, "image", 8);
         } else {
             appendHint(tooltip);
         }
@@ -81,6 +85,15 @@ public final class PrinterTooltips {
 
     private static Component line(String key, Object... arguments) {
         return Component.translatable(key, arguments).withStyle(ChatFormatting.GRAY);
+    }
+
+    private static void condition(List<Component> tooltip, String item, int index) {
+        tooltip.add(Component.translatable("item.printer." + item + ".tooltip.condition" + index)
+                .withStyle(ChatFormatting.GOLD));
+    }
+
+    private static void behaviour(List<Component> tooltip, String item, int index, Object... arguments) {
+        tooltip.add(line("item.printer." + item + ".tooltip.behaviour" + index, arguments));
     }
 
     private static void appendHint(List<Component> tooltip) {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0 — release candidate
+
+- Remove frame selection, frame metadata, decorative-border rendering, and old development-item metadata fallback paths. This first public release requires new worlds; pre-0.1.0 saves and Printer/Image items are unsupported.
+- Add a compact 16-color background palette, defaulting to white. Preserve source transparency until printing. Color prints composite the original artwork; monochrome prints dither only the artwork before applying a flat background, preserving soft alpha edges without dithering the paper color.
+- Carry the 24-bit background color through preset saves, dropped Printer items, Image components, entity saves/drops, and network synchronization. Transparent variants deduplicate by their final PNG content.
+- Adopt translated summary/condition/behaviour tooltips for every item, with gold condition headings and gray detail lines visible only while holding Shift. Image details report background color without frame data or internal IDs.
+- Ship local file upload, server-side image validation, core advancements, the dedicated creative tab, and the reviewed community translation workflow.
+- Bound gallery image-request bursts and response traffic; fix the missing cache import and request-budget implementation found by the release build.
+- Package the MIT license and credits with the mod. Texture refinement, GUI texture changes, and final exact-artifact gameplay sign-off remain release gates.
+
 ## 0.0.9 — testing build
 
 - Add a dedicated Printer creative tab with Printer, Color Cartridge, and Image in order, and remove their vanilla Functional Blocks insertion.

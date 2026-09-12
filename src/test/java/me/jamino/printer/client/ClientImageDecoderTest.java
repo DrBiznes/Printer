@@ -35,6 +35,19 @@ final class ClientImageDecoderTest {
     }
 
     @Test
+    void transferredCanonicalPngRetainsTransparentAndHalfTransparentPixels() throws Exception {
+        BufferedImage source = new BufferedImage(3, 1, BufferedImage.TYPE_INT_ARGB);
+        source.setRGB(0, 0, 0x00FFFFFF);
+        source.setRGB(1, 0, 0x80FF0000);
+        source.setRGB(2, 0, 0xFFFFFFFF);
+        try (NativeImage decoded = ClientImageCache.decodePng(png(source))) {
+            assertEquals(0, decoded.getPixelRGBA(0, 0) >>> 24);
+            assertEquals(0x800000FF, decoded.getPixelRGBA(1, 0));
+            assertEquals(0xFFFFFFFF, decoded.getPixelRGBA(2, 0));
+        }
+    }
+
+    @Test
     void decodingRemainsUsableAfterInvalidImage() throws Exception {
         assertThrows(IOException.class, () -> ClientImageCache.decodePng(new byte[32]));
         try (NativeImage decoded = ClientImageCache.decodePng(png(noisyImage(256)))) {
