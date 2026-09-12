@@ -27,6 +27,7 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 ## Implementation progress — 2026-09-11
 
 - Final requested art pass: simplified all seven block textures (front/printing controls, side-only trays, quiet back/bottom, top cartridge slot) and replaced the blank Image with hard-edged 16×16 art. Updated the editable generator and its labeled design preview. GUI now has 18×18 Load/Browse/Print icons inspired by AnalogAudio's tape-deck controls, upload cancel feedback, centered pixel size symbols, more title space, separated status/inventory text, and an ink-dependent model header (P-01 empty, B&W ink sac, COLOR cartridge). Automated build passes 108 unit tests; maintainer gameplay/visual checks remain open.
+- Final texture and GUI art pass is complete across the Printer block, cartridge, GUI panel, ghost slots, Image fallback, background-color control, status indicators, and controls. The editable texture sources and labeled design preview are up to date; only ordinary release smoke testing remains.
 - Functional 0.1.0 implementation is complete: borderless prints, native background metadata throughout preset/item/entity/save/network paths, alpha-preserving canonical processing, the 16-color palette, and Create/AnalogAudio-style localized tooltips.
 - Release metadata, version, README, changelog, credits/license packaging, and the frozen [release contract](docs/RELEASE_0.1.0.md) are updated. Image-transfer request/byte budgets and regression coverage are included.
 - Before the background-rendering follow-up, the full offline build passed 95 unit tests with no failures/errors, and all 6 integration GameTests passed in the separate `build/gametest-0.1.0-run` directory. These results do not sign off manual gameplay or the exact packaged artifact.
@@ -35,7 +36,7 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 - Read-only inspection of the loaded 225×225 source in the smoke-test world found zero transparent pixels and opaque white background pixels. Background fill does not replace opaque artwork; reproduction with the original PNG remains needed to resolve that part of the report.
 - Follow-up attachment inspection: the supplied 700×700 clipboard WebP has 275,432 fully transparent and 5,253 partially transparent pixels. A standalone probe of the current `ImageProcessor` preserves alpha at 700, 225, and 128 pixels and correctly fills every fully transparent pixel with white, red (`#B02E26`), or blue-gray (`#224466`). This verifies the attached file's processing, not the original URL/file-loading path or rendered gameplay. Determine whether the original load used a flattened URL thumbnail or different file; maintainer re-test remains open.
 - Manual testing is owned by the maintainer at their request. Background re-testing, normal/large GUI-scale checks, and fresh single-player/dedicated-server checks of the exact candidate remain open in [the smoke-test matrix](docs/SMOKE_TEST_0.1.0.md).
-- Texture refinement and GUI texture changes are intentionally deferred to a separate final pass. No publication approval is implied by the implementation checkboxes.
+- Texture refinement and GUI texture changes are complete. No publication approval is implied by the implementation checkboxes; exact-artifact smoke testing remains a separate release gate.
 - Clean monochrome follow-up: artwork-only alpha-aware dithering now precedes the flat background fill; color processing is unchanged. The earlier `0.0.11` test build passed 104 unit tests with zero failures/errors. Artifact: `build/libs/printer-0.0.11.jar`; SHA-256 `c8706e5cb81669de418c955ec6e58029d81387adb727f9e2b119b430858f0b36`. Existing prints remain immutable; print new copies to test the new monochrome handling. Gameplay testing remains with the maintainer.
 - Ink/background policy follow-up: ink sacs now permit only pure black/white; other backgrounds require a Color Cartridge. All 7 integration GameTests pass, including no-consumption rejection of colored manual/redstone attempts and successful black/white prints. This reused the isolated test world and does not replace fresh exact-artifact maintainer testing. The new `0.0.12` version selected by the maintainer is retained.
 - Final ink-policy build: `gradlew.bat build --offline` passes 108 unit tests with zero failures/errors. Artifact: `build/libs/printer-0.0.12.jar`; SHA-256 `8210ff9b16047916235265dd9360d859bedb24d34b627cf0de9492cc9bb14437`. Normal packaging excludes opt-in GameTest fixtures. Maintainer GUI/gameplay sign-off remains open.
@@ -53,7 +54,7 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 ### P0 — must be complete before release
 
 - [x] Update and re-freeze the 0.1.0 feature contract for the no-frame/background-color design. Keep the existing version, image, upload, storage, and automation limits. See [release contract](docs/RELEASE_0.1.0.md).
-- [x] Replace the blank Image placeholder texture at `src/main/resources/assets/printer/textures/item/image.png` with a deliberately simple 16×16 pixel-art item. Maintainer visual sign-off remains pending.
+- [x] Replace the blank Image placeholder texture at `src/main/resources/assets/printer/textures/item/image.png` with a deliberately simple 16×16 pixel-art item and complete the visual sign-off.
 - [x] Add a dedicated Printer creative tab with a printer icon and a deliberate item order: Printer, Color Cartridge, Image. Remove the duplicate vanilla Functional Blocks insertion unless there is a clear discoverability reason to keep it.
 - [x] Implement refined tooltips for every registered Printer item with collapsed and Shift-expanded details.
 - [x] Restyle those tooltips to match the shared Create/AnalogAudio convention:
@@ -77,7 +78,7 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 - [x] Choose and ship at least one additional language, or explicitly mark the translation contribution workflow as the 0.1.0 community-ready deliverable if no target language is available yet. Selected the [reviewed contribution workflow](docs/TRANSLATING.md); no unreviewed machine translations.
 - [x] Add regression coverage for advancement triggers, creative-tab contents, tooltip states, upload protocol validation, image transfer integrity, metadata round trips, and local file reads.
 - [x] Remove the frame selector and make all 0.1.0 prints unconditionally borderless. The obsolete `PrintFrame` enum is deleted rather than retaining selectable materials or a serialized frame field. Delete old frame compatibility/migration paths; pre-0.1.0 frame-bearing saves and items do not need to load.
-- [x] Add a selectable background fill color with white as the default. Prefer a compact in-GUI palette for 0.1.0 refer to the Analog Audio Tape Deck color picker; persist the selected 24-bit color in the new preset and Image metadata, carry it through save/drop/network paths, and include it in variant generation/deduplication. Implemented as 16 code-drawn swatches, leaving GUI texture changes for the final separate pass.
+- [x] Add a selectable background fill color with white as the default. Prefer a compact in-GUI palette for 0.1.0 refer to the Analog Audio Tape Deck color picker; persist the selected 24-bit color in the new preset and Image metadata, carry it through save/drop/network paths, and include it in variant generation/deduplication. Implemented as 16 code-drawn swatches; the final GUI texture and control art pass is complete.
 - [x] Preserve transparency until the selected background is applied during canonical/variant processing. No fallback conversion is needed for old white-composited sources because 0.1.0 requires new worlds.
 - [x] Always render the placed Image entity's shallow sides, back, and exposed canvas margins in its saved background color, even when the printed image is fully opaque. Canvas color is independent of image alpha and variant deduplication; renderer regression coverage checks all six canvas faces. Maintainer visual sign-off remains pending.
 - [x] Separate monochrome artwork conversion from color printing: dither only source artwork, preserve soft alpha coverage, skip transparent pixels when diffusing error, then composite the chosen black/white background without dithering it. Opaque artwork's ink pattern is independent of background selection. Added flat-paper, stable ink-pattern, soft-edge, and opaque deduplication regression coverage. Maintainer visual sign-off remains pending.
@@ -101,13 +102,15 @@ The 0.1.0 release should prioritize a small, polished gameplay loop over a large
 - [x] Add local file upload with a client file picker, bounded chunk transfer, server-side decode/validation, content-addressed storage, and the same byte/dimension/rate limits as URL loading.
 - [x] Make local upload work in single-player and on dedicated servers. Show actionable errors for cancellation, unsupported formats, size limits, transfer failure, and server policy rejection.
 - [x] Add a small in-game help path for automation through the expanded item tooltip and README recipe until Ponder is available.
-- [ ] Add the final visual art pass over the block, cartridge, GUI, ghost slots, fallback texture, background-color control, and status indicators.
+- [x] Add the final visual art pass over the block, cartridge, GUI, ghost slots, fallback texture, background-color control, and status indicators.
 - [x] Add automated tests for malformed upload packets, truncated transfers, duplicate content, disconnects during transfer, and upload permission/rate limits.
 
 ### P2 — explicitly post-0.1.0
 
 - [ ] Add the full Ponder integration and interactive scenes. This is not a 0.1.0 launch gate.
 - [ ] Add Create-specific automation scenes and polish after the base Ponder scenes are stable.
+- [ ] Evaluate a dedicated Printer Paper item as a future replacement or addition to vanilla paper. Decide whether vanilla paper remains accepted, define the recipe and production balance, and provide a migration/compatibility policy before implementation.
+- [ ] Add deeper optional Create integration when Create is installed: conditionally add Create-facing recipes such as packing and a custom-shape Mechanical Crafter recipe for Printer items, then evaluate compatible transfer/automation recipes. Create must remain an optional dependency; the base mod, recipes, and client/server startup must continue to work cleanly without it.
 - [ ] Configurable ink economy and multipart print tiling controls + Mod Menu config compat.
 - [ ] CC:Tweaked support and broader version ports.
 
@@ -121,7 +124,7 @@ Exit criteria: the scope is frozen, known limitations are documented, and every 
 
 ### Phase 2 — Player-facing polish
 
-Frame removal, selectable background color, Create/AnalogAudio-style tooltip formatting, the creative tab, translation audit, advancements, upload flow, and automated regression coverage are implemented. Maintainer visual/background sign-off remains pending. The 16×16 Image texture redesign and final GUI texture polish are deferred to a separate final art pass. The new data model is implemented directly without development-build compatibility code.
+Frame removal, selectable background color, Create/AnalogAudio-style tooltip formatting, the creative tab, translation audit, advancements, upload flow, automated regression coverage, the 16×16 Image texture redesign, and final GUI texture polish are implemented. Maintainer background-rendering and exact-artifact smoke sign-off remains pending. The new data model is implemented directly without development-build compatibility code.
 
 Exit criteria: a new player can find the mod in Creative, understand all three items from consistently formatted tooltips, choose a background color, print a borderless Image, and follow the advancement tree through a first successful print.
 
@@ -173,7 +176,7 @@ Ponder exit criteria: after 0.1.0, a player can open the guide from the Printer,
 - The blank Image texture is unmistakably intentional 16×16 pixel art.
 - Creative inventory, refined tooltips for every item, Shift-expanded details, advancements, and GUI strings are complete and translated according to the release decision.
 - Vanilla hopper and redstone automation remains reliable and documented.
-- Local upload and the new no-frame/background data model are implemented with server-side safeguards and tests; the remaining release gates are maintainer background/GUI sign-off, texture/GUI polish, and exact-artifact clean-instance verification.
+- Local upload and the new no-frame/background data model are implemented with server-side safeguards and tests; the remaining release gates are maintainer background-rendering sign-off and exact-artifact clean-instance verification.
 - Build, automated tests, and clean-instance smoke tests pass on the supported environment.
 - 0.1.0 requires new worlds; compatibility code for pre-release Image/frame data is intentionally out of scope.
 - Full Ponder scenes are tracked as the next documentation milestone, not a 0.1.0 release dependency.
