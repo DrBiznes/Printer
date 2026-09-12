@@ -5,6 +5,7 @@ import me.jamino.printer.Config;
 import me.jamino.printer.Printer;
 import me.jamino.printer.data.PrinterPreset;
 import me.jamino.printer.data.ImageReference;
+import me.jamino.printer.data.PrintMode;
 import me.jamino.printer.image.ImageFailure;
 import me.jamino.printer.inventory.PrinterMenu;
 import me.jamino.printer.registry.ModItems;
@@ -31,6 +32,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     private PrinterButton smaller, larger, load, print, browse;
     private final List<PrinterColorButton> colors = new ArrayList<>();
     private final ClientFileUpload upload = new ClientFileUpload(this);
+    private long monochromeBackgroundResetAt;
 
     public PrinterScreen(PrinterMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -86,6 +88,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
             swatch.setTooltip(Tooltip.create(label));
             colors.add(swatch);
         }
+        normalizeMonochromeBackground();
         updateControls();
     }
 
@@ -109,10 +112,28 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         return menu.getPrinter() == null ? null : menu.getPrinter().getPreset().orElse(null);
     }
 
+    private void normalizeMonochromeBackground() {
+        if (menu.getPrinter() == null || !menu.getPrinter().isMonochromeSupply()) {
+            monochromeBackgroundResetAt = 0;
+            return;
+        }
+        PrinterPreset preset = preset();
+        if (preset == null || PrintMode.MONOCHROME.allowsBackground(preset.backgroundColor())) {
+            monochromeBackgroundResetAt = 0;
+            return;
+        }
+        long now = Util.getMillis();
+        if (now >= monochromeBackgroundResetAt) {
+            ModNetworking.sendBackground(menu.getPos(), ImageReference.DEFAULT_BACKGROUND_COLOR);
+            monochromeBackgroundResetAt = now + 250L;
+        }
+    }
+
     @Override
     protected void containerTick() {
         super.containerTick();
         upload.tick();
+        normalizeMonochromeBackground();
         updateControls();
     }
 
@@ -178,7 +199,8 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
             graphics.blit(Printer.id("textures/item/image.png"), leftPos + 208, topPos + 44, 0, 0, 16, 16, 16, 16);
             return;
         }
-        ResourceLocation texture = ClientImageCache.getOrRequest(preset.sourceId());
+        boolean monochrome = menu.getPrinter() != null && menu.getPrinter().isMonochromeSupply();
+        ResourceLocation texture = ClientImageCache.getOrRequest(preset.sourceId(), monochrome);
         if (texture == null) {
             graphics.drawCenteredString(font, tr("preview_loading"), leftPos + 216, topPos + 47, CREAM);
             return;
@@ -191,7 +213,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         graphics.fill(x - 1, y - 1, x + width + 1, y + height + 1, CREAM);
         graphics.fill(x, y, x + width, y + height, 0xFF000000 | preset.backgroundColor());
         // Ordinary GUI texture blits do not enable alpha blending. Draw the
-        // background first, then composite the canonical RGBA source over it.
+        // background first, then composite the selected preview texture over it.
         graphics.flush();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
