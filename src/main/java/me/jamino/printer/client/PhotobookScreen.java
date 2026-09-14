@@ -133,8 +133,6 @@ public final class PhotobookScreen extends AbstractContainerScreen<PhotobookMenu
         graphics.drawString(font, net.minecraft.locale.Language.getInstance().getVisualOrder(
                 font.substrByWidth(title, Math.max(0, pageX - 22))), 14, 5, 0xFFFFF0D0, false);
         graphics.drawString(font, page, pageX, 5, 0xFFFFF0D0, false);
-        graphics.drawString(font, tr("photos", images.size(), PhotobookMenu.CAPACITY), 48, 99, 0xFF283331, false);
-        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFF283331, false);
     }
 
     @Override
