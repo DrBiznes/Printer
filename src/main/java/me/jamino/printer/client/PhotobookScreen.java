@@ -27,7 +27,7 @@ public final class PhotobookScreen extends AbstractContainerScreen<PhotobookMenu
         imageWidth = 256;
         imageHeight = 238;
         inventoryLabelX = 48;
-        inventoryLabelY = 147;
+        inventoryLabelY = 145;
     }
 
     @Override
@@ -93,22 +93,15 @@ public final class PhotobookScreen extends AbstractContainerScreen<PhotobookMenu
             drawPhoto(graphics, spread * 2, x + 22, y + 24);
             drawPhoto(graphics, spread * 2 + 1, x + 138, y + 24);
         }
-        for (var slot : menu.slots) {
-            graphics.fill(x + slot.x - 1, y + slot.y - 1, x + slot.x + 17, y + slot.y + 17, 0xFF596052);
-            graphics.fill(x + slot.x, y + slot.y, x + slot.x + 16, y + slot.y + 16, 0xFF9C9C80);
-            graphics.fill(x + slot.x, y + slot.y + 16, x + slot.x + 17, y + slot.y + 17, 0xFFE8DFBA);
-        }
-        // Darken the printer's shared ghost icon against the lighter book slots.
-        graphics.setColor(0.65F, 0.65F, 0.65F, 1.0F);
-        try {
-            for (int i = 0; i < PhotobookMenu.CAPACITY; i++) {
-                var slot = menu.slots.get(i);
-                if (!slot.hasItem()) {
-                    graphics.blit(GHOST_IMAGE, x + slot.x, y + slot.y, 0, 0, 16, 16, 16, 16);
-                }
-            }
-        } finally {
-            graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+        // Photo storage and player inventory share the printer's slot styling. The tray spans
+        // x 44..213 and caps 2px above the first slot row, matching textures/gui/printer.png.
+        SlotPanel.tray(graphics, x + 44, y + 109, 170, 40);
+        SlotPanel.tray(graphics, x + 44, y + 155, 170, 80);
+        for (var slot : menu.slots) SlotPanel.slot(graphics, x + slot.x, y + slot.y);
+        // Slots now match the printer's, so the shared ghost icon needs no tint to sit right.
+        for (int i = 0; i < PhotobookMenu.CAPACITY; i++) {
+            var slot = menu.slots.get(i);
+            if (!slot.hasItem()) graphics.blit(GHOST_IMAGE, x + slot.x, y + slot.y, 0, 0, 16, 16, 16, 16);
         }
     }
 
@@ -140,7 +133,7 @@ public final class PhotobookScreen extends AbstractContainerScreen<PhotobookMenu
         graphics.drawString(font, net.minecraft.locale.Language.getInstance().getVisualOrder(
                 font.substrByWidth(title, Math.max(0, pageX - 22))), 14, 5, 0xFFFFF0D0, false);
         graphics.drawString(font, page, pageX, 5, 0xFFFFF0D0, false);
-        graphics.drawString(font, tr("photos", images.size(), PhotobookMenu.CAPACITY), 48, 101, 0xFF283331, false);
+        graphics.drawString(font, tr("photos", images.size(), PhotobookMenu.CAPACITY), 48, 99, 0xFF283331, false);
         graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFF283331, false);
     }
 
