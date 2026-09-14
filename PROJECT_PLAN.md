@@ -53,5 +53,3 @@ Manual testing remains with the maintainer, as previously requested. Source-runt
 - Configurable ink economy, multipart tiling, and configuration UI integration.
 - Evaluate dedicated Printer Paper; vanilla paper remains the 0.1.0 input.
 - CC:Tweaked integration and additional Minecraft/loader ports.
-
-The current feature contract is [docs/RELEASE_0.1.0.md](docs/RELEASE_0.1.0.md). Earlier development build notes are available in Git history; only verification of the current artifact can close release gates.
