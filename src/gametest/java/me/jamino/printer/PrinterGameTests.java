@@ -164,7 +164,6 @@ public final class PrinterGameTests {
         helper.startSequence().thenWaitUntil(() -> helper.assertFalse(printer.isPrinting(), "Wait for invalid decode"))
                 .thenExecute(() -> {
                     helper.assertTrue(printer.getPreset().isEmpty(), "Invalid bytes cannot save a preset");
-                    helper.assertFalse(done(player, "load"), "Failed decode cannot grant advancement");
                     helper.assertValueEqual(printer.getItem(0).getCount(), 3, "Paper untouched");
                     helper.assertValueEqual(printer.getItem(1).getCount(), 1, "Ink untouched");
                     PrinterJobService.LOAD_THROTTLE.remove(player.getUUID());
@@ -193,8 +192,7 @@ public final class PrinterGameTests {
             helper.assertFalse(printer.isPrinting(), "Wait for upload decode");
             helper.assertTrue(printer.getPreset().isPresent(), "Upload must save a preset");
         }).thenExecute(() -> {
-            helper.assertTrue(done(player, "load"), "Successful upload awards load");
-            helper.assertFalse(done(player, "print"), "Loading must not award print");
+            helper.assertFalse(done(player, "print_bw"), "Loading must not award a print advancement");
             helper.assertValueEqual(printer.getPreset().orElseThrow().originalWidth(), 32, "Source width");
             helper.assertValueEqual(printer.getPreset().orElseThrow().backgroundColor(), ImageReference.DEFAULT_BACKGROUND_COLOR, "New preset defaults to white");
             PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x224466);
@@ -212,8 +210,8 @@ public final class PrinterGameTests {
         }).thenWaitUntil(() -> helper.assertFalse(printer.isPrinting(), "Wait for printing"))
                 .thenExecute(() -> {
                     helper.assertTrue(printer.getItem(2).is(ModItems.IMAGE.get()), "Print output");
-                    helper.assertTrue(done(player, "print"), "Successful print awards print");
-                    helper.assertTrue(done(player, "color"), "Color print awards color");
+                    helper.assertFalse(done(player, "print_bw"), "Color print must not award print_bw");
+                    helper.assertTrue(done(player, "print_color"), "Color print awards print_color");
                     helper.assertFalse(done(player, "automate"), "Manual print must not award automation");
                     helper.assertValueEqual(printer.getItem(0).getCount(), 2, "Paper consumed once");
                     helper.assertValueEqual(printer.getItem(1).getDamageValue(), 1, "One color charge");
@@ -229,7 +227,6 @@ public final class PrinterGameTests {
                     player.setItemInHand(InteractionHand.MAIN_HAND, printer.getItem(2).copy());
                     ModItems.IMAGE.get().useOn(new UseOnContext(player, InteractionHand.MAIN_HAND,
                             new BlockHitResult(Vec3.atCenterOf(wall), Direction.SOUTH, wall, false)));
-                    helper.assertTrue(done(player, "place"), "Wall placement awards place");
                     var display = helper.getLevel().getEntitiesOfClass(PrintedImageEntity.class,
                             new AABB(wall).inflate(2)).getFirst();
                     CompoundTag saved = new CompoundTag(); display.saveWithoutId(saved);
@@ -261,7 +258,6 @@ public final class PrinterGameTests {
         helper.runAfterDelay(2, () -> {
             helper.assertFalse(printer.isPrinting(), "Closing menu cancels transfer");
             helper.assertTrue(printer.getPreset().isEmpty(), "No partial preset");
-            helper.assertFalse(done(player, "load"), "Cancelled upload must not award load");
             PrinterJobService.LOAD_THROTTLE.remove(player.getUUID());
             player.containerMenu = new PrinterMenu(43, player.getInventory(), printer.getBlockPos());
             ServerUploads.begin(player, new ModNetworking.BeginUploadPayload(printer.getBlockPos(), UUID.randomUUID(), -1, "Bad"));
@@ -310,7 +306,8 @@ public final class PrinterGameTests {
                     assertMonochromeBackground(helper, printer, 0xFFFFFF);
                     helper.assertValueEqual(printer.getItem(0).getCount(), 2, "Two valid prints consume two paper");
                     helper.assertValueEqual(printer.getItem(1).getDamageValue(), 2, "Two valid prints consume two charges");
-                    helper.assertFalse(done(player, "color"), "Ink sac prints cannot grant color advancement");
+                    helper.assertTrue(done(player, "print_bw"), "Ink sac prints grant print_bw");
+                    helper.assertFalse(done(player, "print_color"), "Ink sac prints cannot grant print_color advancement");
                 }).thenSucceed();
     }
 

@@ -9,11 +9,10 @@ import java.util.Map;
 /** Deterministic README art built from the Printer's checked-in PNG textures. */
 public final class GenerateReadmeArt {
     static final int W = 1600, H = 1000;
-    static final int INK = 0xff283331, SHADOW = 0xff596052, SHELL = 0xffc6c3a0;
-    static final int LIGHT = 0xffe8dfba, TEAL = 0xff578f87, CYAN = 0xff6ebbb4;
-    static final int MAGENTA = 0xffc66e85, GOLD = 0xffdcb564, WOOD = 0xff776047;
-    static final File ROOT = new File(".").getAbsoluteFile();
-    static final File TEX = new File(ROOT, "src/main/resources/assets/printer/textures");
+    static final int INK = ArtKit.INK, SHADOW = ArtKit.SHADOW, SHELL = ArtKit.SHELL;
+    static final int LIGHT = ArtKit.LIGHT, TEAL = ArtKit.TEAL, CYAN = ArtKit.CYAN;
+    static final int MAGENTA = ArtKit.MAGENTA, GOLD = ArtKit.GOLD, WOOD = ArtKit.WOOD;
+    static final File ROOT = ArtKit.ROOT;
     static final Map<Character, String[]> FONT = new HashMap<>();
 
     static {
@@ -43,9 +42,10 @@ public final class GenerateReadmeArt {
         FONT.put('&', new String[]{"01100","10010","10100","01000","10101","10010","01101"});
         FONT.put('0', new String[]{"01110","10001","10011","10101","11001","10001","01110"});
         FONT.put('1', new String[]{"00100","01100","00100","00100","00100","00100","01110"});
+        FONT.put('!', new String[]{"00100","00100","00100","00100","00100","00000","00100"});
     }
 
-    static BufferedImage tex(String path) throws Exception { return ImageIO.read(new File(TEX, path)); }
+    static BufferedImage tex(String path) throws Exception { return ArtKit.tex(path); }
 
     static void text(BufferedImage im, String value, int x, int y, int color, int scale, boolean center) {
         int advance = 6 * scale, width = value.length() * advance;
@@ -60,46 +60,30 @@ public final class GenerateReadmeArt {
         g.dispose();
     }
 
-    static void splash(Graphics2D g, int x, int y, int size) {
-        g.setColor(new Color(0xff171e1c, true));
-        int[][] blocks = {{2,3,7,8},{5,1,12,10},{9,3,16,13},{3,8,14,16},{7,10,12,18},{0,8,4,12}};
-        for (int[] b : blocks) g.fillRect(x + b[0]*size/18, y + b[1]*size/18, (b[2]-b[0])*size/18, (b[3]-b[1])*size/18);
-        for (int[] b : new int[][]{{-2,5,2,2},{16,2,3,3},{18,14,2,2},{4,18,2,2}})
-            g.fillRect(x + b[0]*size/18, y + b[1]*size/18, b[2]*size/18, b[3]*size/18);
-    }
-
-    static void sprite(BufferedImage out, BufferedImage src, int x, int y, int scale, double angle) {
-        Graphics2D g = out.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        int w = src.getWidth()*scale, h = src.getHeight()*scale;
-        AffineTransform at = new AffineTransform(); at.translate(x+w/2.0, y+h/2.0); at.rotate(Math.toRadians(angle)); at.translate(-w/2.0, -h/2.0); at.scale(scale, scale);
-        g.drawImage(src, at, null); g.dispose();
-    }
-
-    static void isoFace(Graphics2D g, BufferedImage src, int ox, int oy, int ux, int uy, int vx, int vy) {
-        for (int py=0; py<16; py++) for (int px=0; px<16; px++) {
-            int c = src.getRGB(px, py); if ((c >>> 24) == 0) continue;
-            int x=ox+px*ux+py*vx, y=oy+px*uy+py*vy;
-            Polygon p = new Polygon(new int[]{x,x+ux,x+ux+vx,x+vx}, new int[]{y,y+uy,y+uy+vy,y+vy}, 4);
-            g.setColor(new Color(c, true)); g.fillPolygon(p);
-        }
-    }
-
     public static void main(String[] args) throws Exception {
         BufferedImage out = new BufferedImage(W, H, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = out.createGraphics(); g.setColor(new Color(LIGHT)); g.fillRect(0,0,W,H);
-        for (int[] s : new int[][]{{70,95,170},{1340,75,150},{1425,365,120},{40,715,120},{1370,810,145}}) splash(g,s[0],s[1],s[2]);
+        // {x, y, size, variant, mirrored} - varied silhouettes and scales, none repeating a neighbour.
+        for (int[] s : new int[][]{
+                {52, 70, 190, 0, 0}, {1330, 40, 168, 3, 0}, {1436, 316, 126, 1, 1},
+                {150, 372, 88, 4, 1}, {1180, 120, 92, 7, 0}, {372, 108, 64, 5, 0},
+                {928, 396, 70, 4, 0}, {1046, 66, 58, 7, 1}, {258, 258, 62, 1, 0},
+                {1364, 418, 54, 5, 1}, {486, 396, 48, 4, 0}, {1268, 372, 44, 7, 0}})
+            ArtKit.splash(g, s[0], s[1], s[2], s[3], s[4] == 1);
         for (int[] p : new int[][]{{250,110},{1270,245},{118,485},{1510,540},{1230,920}}) { g.setColor(new Color(INK)); g.fillRect(p[0],p[1],20,20); }
         text(out,"PRINTER",W/2+6,76,INK,10,true); text(out,"PRINTER",W/2,66,TEAL,10,true);
         text(out,"MOD",W/2+4,180,INK,6,true); text(out,"MOD",W/2,170,GOLD,6,true);
         g.setColor(new Color(INK)); g.fillRect(W/2-205,262,410,13); g.setColor(new Color(GOLD)); g.fillRect(W/2-160,262,320,4);
-        sprite(out,tex("item/color_cartridge.png"),210,185,8,-13); sprite(out,tex("item/black_cartridge.png"),1235,188,8,12);
-        sprite(out,tex("item/image.png"),410,295,7,-9); sprite(out,tex("item/image.png"),1045,300,7,10); sprite(out,tex("item/color_cartridge.png"),720,295,5,5);
+        ArtKit.sprite(out,tex("item/color_cartridge.png"),210,185,8,-13); ArtKit.sprite(out,tex("item/black_cartridge.png"),1235,188,8,12);
+        ArtKit.sprite(out,tex("item/image.png"),410,295,7,-9); ArtKit.sprite(out,tex("item/image.png"),1045,300,7,10); ArtKit.sprite(out,tex("item/color_cartridge.png"),720,295,5,5);
         g.setColor(new Color(WOOD)); g.fillRect(56,500,W-112,453); g.setColor(new Color(SHELL)); g.fillRect(68,512,W-136,429);
         g.setColor(new Color(TEAL)); g.fillRect(68,512,W-136,16); g.setColor(new Color(INK)); g.fillRect(68,528,W-136,7); g.setColor(new Color(SHADOW)); g.fillRect(68,931,W-136,10);
-        isoFace(g,tex("block/printer_front.png"),155,650,14,0,0,14); isoFace(g,tex("block/printer_output.png"),379,650,10,-6,0,14); isoFace(g,tex("block/printer_top.png"),155,650,14,-7,10,7);
-        g.setColor(new Color(SHADOW)); g.fillPolygon(new int[]{138,405,500,235},new int[]{881,881,923,923},4);
-        text(out,"PRINT YOUR WORLD",720,605,TEAL,5,false); g.setColor(new Color(INK)); g.fillRect(720,661,350,8);
+        // Printer block in 2:1 dimetric. Apex is the top corner; the shadow is cast from the base corners.
+        double bx = 336, by = 556, bs = 156;
+        ArtKit.isoShadow(g, bx, by, bs, 0x33000000);
+        ArtKit.isoBoxShaded(g, tex("block/printer_top.png"), tex("block/printer_front.png"),
+                tex("block/printer_output.png"), bx, by, bs);
+        text(out,"PRINT OUT IMAGES!",720,605,TEAL,5,false); g.setColor(new Color(INK)); g.fillRect(720,661,350,8);
         text(out,"TURN WEB OR LOCAL IMAGES INTO PRINTS.",720,700,INK,3,false); text(out,"PRINT IN COLOR OR BLACK & WHITE.",720,753,INK,3,false); text(out,"DISPLAY IN FRAMES OR ON YOUR WALLS.",720,806,INK,3,false);
         for (int i=0;i<3;i++) { g.setColor(new Color(INK)); g.fillRect(720+i*42,871,28,24); g.setColor(new Color(new int[]{CYAN,MAGENTA,GOLD}[i])); g.fillRect(726+i*42,877,16,12); }
         text(out,"P-01 / IMAGE PRINTING",720,905,SHADOW,2,false); g.dispose();

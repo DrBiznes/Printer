@@ -1,0 +1,35 @@
+{
+  "display": {
+    "icon": {
+      "id": "printer:color_cartridge"
+    },
+    "title": {
+      "translate": "advancements.printer.craft_color_ink.title"
+    },
+    "description": {
+      "translate": "advancements.printer.craft_color_ink.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "printer:color_cartridge"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "obtained"
+    ]
+  ],
+  "parent": "printer:root"
+}

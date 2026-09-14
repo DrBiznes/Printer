@@ -1,0 +1,35 @@
+{
+  "display": {
+    "icon": {
+      "id": "printer:black_cartridge"
+    },
+    "title": {
+      "translate": "advancements.printer.craft_black_ink.title"
+    },
+    "description": {
+      "translate": "advancements.printer.craft_black_ink.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "printer:black_cartridge"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "obtained"
+    ]
+  ],
+  "parent": "printer:root"
+}

@@ -38,11 +38,12 @@ class TranslationAndAdvancementTest {
     @Test void allAdvancementsDecodeAndMatchOnlyTheirServerAction() throws Exception {
         var language = read("/assets/printer/lang/en_us.json");
         var ops = RegistryOps.create(JsonOps.INSTANCE, VanillaRegistries.createLookup());
-        for (String name : new String[]{"root", "load", "print", "place", "automate", "color"}) {
+        for (String name : new String[]{"root", "craft_black_ink", "craft_color_ink", "print_bw", "print_color", "print_max_size", "automate"}) {
             var json = read("/data/printer/advancement/" + name + ".json");
             assertNotNull(Advancement.CODEC.parse(ops, json).getOrThrow());
             assertTrue(language.has("advancements.printer." + name + ".title"));
             assertTrue(language.has("advancements.printer." + name + ".description"));
+            if (name.equals("root") || name.equals("craft_black_ink") || name.equals("craft_color_ink")) continue;
             var instance = new PrinterActionTrigger.Instance(Optional.empty(), name);
             assertTrue(instance.matches(name));
             assertFalse(instance.matches("failed"));

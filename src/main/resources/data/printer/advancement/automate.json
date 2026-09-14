@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "id": "printer:image"
+      "id": "printer:printer"
     },
     "title": {
       "translate": "advancements.printer.automate.title"
@@ -27,5 +27,5 @@
       "completed"
     ]
   ],
-  "parent": "printer:print"
+  "parent": "printer:print_bw"
 }

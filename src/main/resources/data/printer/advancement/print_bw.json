@@ -4,10 +4,10 @@
       "id": "printer:image"
     },
     "title": {
-      "translate": "advancements.printer.place.title"
+      "translate": "advancements.printer.print_bw.title"
     },
     "description": {
-      "translate": "advancements.printer.place.description"
+      "translate": "advancements.printer.print_bw.description"
     },
     "frame": "task",
     "show_toast": true,
@@ -18,7 +18,7 @@
     "completed": {
       "trigger": "printer:action",
       "conditions": {
-        "action": "place"
+        "action": "print_bw"
       }
     }
   },
@@ -27,5 +27,5 @@
       "completed"
     ]
   ],
-  "parent": "printer:print"
+  "parent": "printer:root"
 }

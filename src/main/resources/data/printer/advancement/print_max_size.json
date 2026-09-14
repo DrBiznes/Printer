@@ -4,12 +4,12 @@
       "id": "printer:image"
     },
     "title": {
-      "translate": "advancements.printer.print.title"
+      "translate": "advancements.printer.print_max_size.title"
     },
     "description": {
-      "translate": "advancements.printer.print.description"
+      "translate": "advancements.printer.print_max_size.description"
     },
-    "frame": "task",
+    "frame": "goal",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false
@@ -18,7 +18,7 @@
     "completed": {
       "trigger": "printer:action",
       "conditions": {
-        "action": "print"
+        "action": "print_max_size"
       }
     }
   },
@@ -27,5 +27,5 @@
       "completed"
     ]
   ],
-  "parent": "printer:load"
+  "parent": "printer:print_bw"
 }

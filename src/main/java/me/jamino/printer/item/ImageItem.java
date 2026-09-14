@@ -38,8 +38,6 @@ public class ImageItem extends Item {
         if (!context.getLevel().isClientSide()) {
             entity.playPlacementSound();
             context.getLevel().addFreshEntity(entity);
-            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)
-                me.jamino.printer.registry.ModCriteria.ACTION.get().trigger(serverPlayer, "place");
             context.getLevel().gameEvent(player, net.minecraft.world.level.gameevent.GameEvent.ENTITY_PLACE, entity.position());
         }
         stack.shrink(1);

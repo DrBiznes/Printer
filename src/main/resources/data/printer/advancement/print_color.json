@@ -1,13 +1,13 @@
 {
   "display": {
     "icon": {
-      "id": "printer:image"
+      "id": "printer:color_cartridge"
     },
     "title": {
-      "translate": "advancements.printer.load.title"
+      "translate": "advancements.printer.print_color.title"
     },
     "description": {
-      "translate": "advancements.printer.load.description"
+      "translate": "advancements.printer.print_color.description"
     },
     "frame": "task",
     "show_toast": true,
@@ -18,7 +18,7 @@
     "completed": {
       "trigger": "printer:action",
       "conditions": {
-        "action": "load"
+        "action": "print_color"
       }
     }
   },
@@ -27,5 +27,5 @@
       "completed"
     ]
   ],
-  "parent": "printer:root"
+  "parent": "printer:print_bw"
 }

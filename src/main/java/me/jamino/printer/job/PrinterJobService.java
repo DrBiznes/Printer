@@ -85,7 +85,6 @@ public final class PrinterJobService {
                     size.width(), size.height(), ImageReference.DEFAULT_BACKGROUND_COLOR, source.originalWidth(), source.originalHeight()));
             if (printer.getOwner() == null) printer.setOwner(player.getUUID());
             printer.setJobState(false, "gui.printer.status.ready");
-            ModCriteria.ACTION.get().trigger(player, "load");
             player.sendSystemMessage(Component.translatable("message.printer.image_saved",
                     source.originalWidth(), source.originalHeight(), size.width(), size.height()));
             completion.accept(null);
@@ -154,8 +153,11 @@ public final class PrinterJobService {
             printer.setJobState(false, "gui.printer.status.complete");
             if (automated) printer.completeAutomatedPrint();
             if (player != null && !player.hasDisconnected()) {
-                ModCriteria.ACTION.get().trigger(player, "print");
-                if (mode == PrintMode.COLOR) ModCriteria.ACTION.get().trigger(player, "color");
+                ModCriteria.ACTION.get().trigger(player, mode == PrintMode.COLOR ? "print_color" : "print_bw");
+                int maxEdge = Config.SERVER.maxPlacementBlocks.get();
+                if (preset.blocksWide() == maxEdge && preset.blocksHigh() == maxEdge) {
+                    ModCriteria.ACTION.get().trigger(player, "print_max_size");
+                }
                 player.sendSystemMessage(Component.translatable("message.printer.print_complete"));
             }
         });
