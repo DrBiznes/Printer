@@ -34,7 +34,7 @@ public final class ClientFileUpload {
     public Component status() { return status; }
     public void clearStatus() { if (!busy()) status = null; }
 
-    public void select(String title) {
+    public void select() {
         if (busy()) return;
         if (!Config.SERVER.allowLocalUploads.get()) { error(ImageFailure.Reason.UPLOAD_DISABLED); return; }
         String selected;
@@ -66,8 +66,11 @@ public final class ClientFileUpload {
                         bytes = content;
                         sentBegin = true;
                         status = Component.translatable("gui.printer.status.uploading");
+                        // Read the title now rather than when Browse was clicked: the native file
+                        // dialog blocks the render thread, and the resize it triggers rebuilds the
+                        // title box, so a name typed before or during the dialog is only readable here.
                         PacketDistributor.sendToServer(new ModNetworking.BeginUploadPayload(
-                                screen.getMenu().getPos(), request, content.length, title));
+                                screen.getMenu().getPos(), request, content.length, screen.titleValue()));
                     });
                 } catch (Exception exception) {
                     var reason = exception instanceof ImageFailure failure ? failure.reason() : ImageFailure.Reason.READ_FAILED;

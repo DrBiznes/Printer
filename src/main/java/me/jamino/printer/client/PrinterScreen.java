@@ -57,7 +57,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         load.setIcon(PrinterButton.Icon.LOAD);
         load.setTooltip(Tooltip.create(tr("load_help")));
         browse = key(156, 51, 18, 18, tr("browse"), 0xFF4E807B,
-                button -> { if (upload.busy()) upload.cancel(); else upload.select(titleBox.getValue()); });
+                button -> { if (upload.busy()) upload.cancel(); else upload.select(); });
         browse.setTooltip(Tooltip.create(tr("browse_help")));
         smaller = key(154, 91, 18, 18, tr("decrease"), 0xFF736C59,
                 button -> ModNetworking.sendResize(menu.getPos(), -1));
@@ -106,6 +106,9 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
                               net.minecraft.client.gui.components.Button.OnPress action) {
         return addRenderableWidget(new PrinterButton(leftPos + x, topPos + y, width, height, label, color, action));
     }
+
+    /** Current title text. Read late by uploads, whose file dialog can rebuild the box mid-flight. */
+    public String titleValue() { return titleBox == null ? "" : titleBox.getValue(); }
 
     private static Component tr(String key) { return Component.translatable("gui.printer." + key); }
     private PrinterPreset preset() {
