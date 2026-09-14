@@ -68,7 +68,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         smaller.setIcon(PrinterButton.Icon.MINUS);
         larger.setIcon(PrinterButton.Icon.PLUS);
         print = key(111, 113, 18, 18, tr("print"), 0xFFAF653F,
-                button -> { upload.clearStatus(); ModNetworking.sendPrint(menu.getPos()); });
+                button -> { upload.clearStatus(); ModNetworking.sendPrint(menu.getPos(), titleValue()); });
         print.setIcon(PrinterButton.Icon.PRINT);
         colors.clear();
         DyeColor[] palette = {DyeColor.WHITE, DyeColor.BLACK, DyeColor.LIGHT_GRAY, DyeColor.GRAY,

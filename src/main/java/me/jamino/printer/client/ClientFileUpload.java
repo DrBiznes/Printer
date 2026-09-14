@@ -66,9 +66,9 @@ public final class ClientFileUpload {
                         bytes = content;
                         sentBegin = true;
                         status = Component.translatable("gui.printer.status.uploading");
-                        // Read the title now rather than when Browse was clicked: the native file
-                        // dialog blocks the render thread, and the resize it triggers rebuilds the
-                        // title box, so a name typed before or during the dialog is only readable here.
+                        // Seeds the preset's title only; the printed item takes whatever the title
+                        // box holds when Print is clicked. Read late so the box is the live one:
+                        // the native file dialog can rebuild it while this upload is in flight.
                         PacketDistributor.sendToServer(new ModNetworking.BeginUploadPayload(
                                 screen.getMenu().getPos(), request, content.length, screen.titleValue()));
                     });

@@ -115,8 +115,18 @@ public final class PrinterJobService {
                 preset.blocksWide(), preset.blocksHigh(), color, preset.originalWidth(), preset.originalHeight()));
     }
 
+    /** Redstone prints have no open screen to read a title from and pass null to keep the preset's. */
     public static void requestPrint(ServerLevel level, BlockPos pos, ServerPlayer player) {
+        requestPrint(level, pos, player, null);
+    }
+
+    /**
+     * @param title the title box's text as of the print click, or null to keep the preset's title.
+     *              Taking it here means edits made after loading an image still apply to the print.
+     */
+    public static void requestPrint(ServerLevel level, BlockPos pos, ServerPlayer player, String title) {
         if (player != null && !ModNetworking.canUsePrinter(player, pos)) { tell(player, INVALID_MENU); return; }
+        if (title != null && title.length() > 64) { tell(player, INVALID_URL); return; }
         if (!(level.getBlockEntity(pos) instanceof PrinterBlockEntity printer) || printer.isPrinting()) return;
         PrinterPreset preset = printer.getPreset().orElse(null);
         if (preset == null) { fail(printer, player, NO_IMAGE); return; }
@@ -136,7 +146,8 @@ public final class PrinterJobService {
             if (!ImageStore.putVariant(level.getServer(), variant)) { fail(printer, player, STORAGE_FULL); return; }
             ItemStack output = new ItemStack(ModItems.IMAGE.get());
             output.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(variant.contentId(), variant.width(),
-                    variant.height(), preset.blocksWide(), preset.blocksHigh(), preset.title(), mode, preset.backgroundColor(),
+                    variant.height(), preset.blocksWide(), preset.blocksHigh(),
+                    title != null ? title : preset.title(), mode, preset.backgroundColor(),
                     preset.originalWidth(), preset.originalHeight()));
             printer.consumeSupplies();
             printer.setOutput(output);

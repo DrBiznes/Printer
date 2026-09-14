@@ -59,7 +59,7 @@ public final class ModNetworking {
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
                             && canUsePrinter(player, payload.pos()) && player.level() instanceof ServerLevel level) {
-                        PrinterJobService.requestPrint(level, payload.pos(), player);
+                        PrinterJobService.requestPrint(level, payload.pos(), player, payload.title());
                     }
                 }));
         registrar.playToServer(RequestImagePayload.TYPE, RequestImagePayload.STREAM_CODEC, (payload, context) ->
@@ -110,8 +110,8 @@ public final class ModNetworking {
         PacketDistributor.sendToServer(new SetBackgroundPayload(pos, color));
     }
 
-    public static void sendPrint(BlockPos pos) {
-        PacketDistributor.sendToServer(new PrintPayload(pos));
+    public static void sendPrint(BlockPos pos, String title) {
+        PacketDistributor.sendToServer(new PrintPayload(pos, title));
     }
 
     public static void requestImage(String contentId) {
@@ -156,10 +156,13 @@ public final class ModNetworking {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record PrintPayload(BlockPos pos) implements CustomPacketPayload {
+    /** The title is sent with the print so the item takes the box's text as of the click. */
+    public record PrintPayload(BlockPos pos, String title) implements CustomPacketPayload {
         public static final Type<PrintPayload> TYPE = new Type<>(Printer.id("print"));
         public static final StreamCodec<FriendlyByteBuf, PrintPayload> STREAM_CODEC = StreamCodec.composite(
-                BlockPos.STREAM_CODEC, PrintPayload::pos, PrintPayload::new);
+                BlockPos.STREAM_CODEC, PrintPayload::pos,
+                ByteBufCodecs.stringUtf8(64), PrintPayload::title,
+                PrintPayload::new);
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
