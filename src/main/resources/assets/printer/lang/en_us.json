@@ -147,6 +147,7 @@
   "pack.printer.description": "Printer mod resources",
   "item.printer.black_cartridge": "Black Ink Cartridge",
   "item.printer.photobook": "Photobook",
+  "item.printer.incomplete_cartridge": "Incomplete Cartridge",
   "item.printer.black_cartridge.charges": "Prints left: %s",
   "item.printer.black_cartridge.tooltip.summary": "Black ink; B&W prints.",
   "item.printer.black_cartridge.tooltip.behaviour1": "Insert into the Printer. Black/white backgrounds only.",

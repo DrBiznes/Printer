@@ -5,10 +5,11 @@
     "I": { "item": "minecraft:iron_ingot" },
     "R": { "item": "minecraft:redstone" },
     "G": { "item": "minecraft:glass_pane" },
-    "P": { "item": "minecraft:piston" },
-    "S": { "item": "minecraft:smooth_stone" }
+    "D": { "item": "minecraft:dropper" },
+    "S": { "item": "minecraft:smooth_stone" },
+    "H": { "item": "minecraft:hopper" }
   },
-  "pattern": ["III", "RGP", "SSS"],
+  "pattern": ["IHI", "RDG", "SSS"],
   "result": { "id": "printer:printer", "count": 1 },
   "show_notification": true
 }

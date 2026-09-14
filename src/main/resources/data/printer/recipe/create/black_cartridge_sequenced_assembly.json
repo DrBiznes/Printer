@@ -1,0 +1,45 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "create:sequenced_assembly",
+  "ingredient": {
+    "item": "create:iron_sheet"
+  },
+  "results": [
+    {
+      "id": "printer:black_cartridge"
+    },
+    {
+      "chance": 10.0,
+      "id": "minecraft:iron_nugget"
+    }
+  ],
+  "sequence": [
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        { "item": "printer:incomplete_cartridge" },
+        { "item": "minecraft:ink_sac" }
+      ],
+      "results": [
+        { "id": "printer:incomplete_cartridge" }
+      ]
+    },
+    {
+      "type": "create:pressing",
+      "ingredients": [
+        { "item": "printer:incomplete_cartridge" }
+      ],
+      "results": [
+        { "id": "printer:incomplete_cartridge" }
+      ]
+    }
+  ],
+  "transitional_item": {
+    "id": "printer:incomplete_cartridge"
+  }
+}

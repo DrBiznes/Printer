@@ -24,6 +24,8 @@ public final class ModItems {
             "photobook", PhotobookItem::new, new Item.Properties().stacksTo(1));
     public static final DeferredItem<PrinterItem> PRINTER = ITEMS.registerItem("printer",
             properties -> new PrinterItem(ModBlocks.PRINTER.get(), properties));
+    public static final DeferredItem<Item> INCOMPLETE_CARTRIDGE = ITEMS.registerItem(
+            "incomplete_cartridge", Item::new, new Item.Properties());
 
     private ModItems() {}
 
