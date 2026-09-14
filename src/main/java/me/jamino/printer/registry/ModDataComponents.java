@@ -4,6 +4,7 @@ import me.jamino.printer.Printer;
 import me.jamino.printer.data.ImageReference;
 import me.jamino.printer.data.PrinterPreset;
 import net.minecraft.core.component.DataComponentType;
+import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.core.registries.Registries;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -18,6 +19,10 @@ public final class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<PrinterPreset>> PRINTER_PRESET =
             COMPONENTS.register("printer_preset", () -> DataComponentType.<PrinterPreset>builder()
                     .persistent(PrinterPreset.CODEC).networkSynchronized(PrinterPreset.STREAM_CODEC).build());
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<ItemContainerContents>> PHOTOBOOK_CONTENTS =
+            COMPONENTS.register("photobook_contents", () -> DataComponentType.<ItemContainerContents>builder()
+                    .persistent(ItemContainerContents.CODEC).networkSynchronized(ItemContainerContents.STREAM_CODEC).build());
 
     private ModDataComponents() {}
 

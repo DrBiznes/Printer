@@ -31,6 +31,8 @@ public final class ServerUploads {
             if (!PrinterJobService.acquireLoad(player)) throw new ImageFailure(RATE_LIMIT);
             var printer = (PrinterBlockEntity) player.serverLevel().getBlockEntity(payload.pos());
             if (printer.isPrinting()) throw new ImageFailure(BUSY);
+            // Validate capacity before changing any printer state. All transfer access is on this thread.
+            TRANSFERS.checkBegin(player.getUUID(), payload.size(), Config.SERVER.maxDownloadMiB.get() * 1024 * 1024);
             long job = printer.beginJob("gui.printer.status.uploading");
             try {
                 TRANSFERS.begin(player.getUUID(), payload.id(), payload.size(), Config.SERVER.maxDownloadMiB.get() * 1024 * 1024,

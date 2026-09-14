@@ -33,7 +33,7 @@ public final class ModNetworking {
     private ModNetworking() {}
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("5");
+        PayloadRegistrar registrar = event.registrar("0.1.0");
         registrar.playToServer(LoadImagePayload.TYPE, LoadImagePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu

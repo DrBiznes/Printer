@@ -163,8 +163,8 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     public boolean hasPrintingSupplies() {
         return canPrintBackground() && items.get(PAPER_SLOT).is(Items.PAPER)
                 && items.get(PAPER_SLOT).getCount() >= preset.requiredPaper()
-                && (items.get(INK_SLOT).is(Items.INK_SAC) || (items.get(INK_SLOT).is(ModItems.COLOR_CARTRIDGE.get())
-                    && items.get(INK_SLOT).getDamageValue() < items.get(INK_SLOT).getMaxDamage()))
+                && (items.get(INK_SLOT).is(ModItems.BLACK_CARTRIDGE.get()) || items.get(INK_SLOT).is(ModItems.COLOR_CARTRIDGE.get()))
+                && items.get(INK_SLOT).getDamageValue() < items.get(INK_SLOT).getMaxDamage()
                 && items.get(OUTPUT_SLOT).isEmpty();
     }
 
@@ -179,9 +179,7 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
         if (preset == null) return;
         items.get(PAPER_SLOT).shrink(preset.requiredPaper());
         ItemStack ink = items.get(INK_SLOT);
-        if (ink.is(Items.INK_SAC)) {
-            ink.shrink(1);
-        } else if (ink.is(ModItems.COLOR_CARTRIDGE.get())) {
+        if (ink.is(ModItems.BLACK_CARTRIDGE.get()) || ink.is(ModItems.COLOR_CARTRIDGE.get())) {
             ink.setDamageValue(ink.getDamageValue() + 1);
             if (ink.getDamageValue() >= ink.getMaxDamage()) items.set(INK_SLOT, ItemStack.EMPTY);
         }
@@ -189,7 +187,7 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     }
 
     public boolean isMonochromeSupply() {
-        return items.get(INK_SLOT).is(Items.INK_SAC);
+        return items.get(INK_SLOT).is(ModItems.BLACK_CARTRIDGE.get());
     }
 
     public boolean canUseBackgroundColor(int color) {
@@ -347,7 +345,7 @@ public final class PrinterBlockEntity extends BlockEntity implements WorldlyCont
     @Override public boolean canPlaceItem(int slot, ItemStack stack) {
         return !printing && switch (slot) {
             case PAPER_SLOT -> stack.is(Items.PAPER);
-            case INK_SLOT -> stack.is(Items.INK_SAC) || stack.is(ModItems.COLOR_CARTRIDGE.get());
+            case INK_SLOT -> stack.is(ModItems.BLACK_CARTRIDGE.get()) || stack.is(ModItems.COLOR_CARTRIDGE.get());
             default -> false;
         };
     }

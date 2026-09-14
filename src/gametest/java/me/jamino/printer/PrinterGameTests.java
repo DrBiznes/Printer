@@ -63,6 +63,84 @@ public final class PrinterGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
+    public static void photobookStoresEighteenAndPersistsSparsePages(GameTestHelper helper) {
+        var player = player(helper, machine(helper));
+        var inventory = player.getInventory();
+        inventory.clearContent();
+        inventory.selected = 0;
+        ItemStack book = new ItemStack(ModItems.PHOTOBOOK.get());
+        inventory.setItem(0, book);
+        var menu = new me.jamino.printer.inventory.PhotobookMenu(43, inventory, 0);
+        player.containerMenu = menu;
+        for (int i = 0; i < 19; i++) {
+            ItemStack photo = new ItemStack(ModItems.IMAGE.get());
+            photo.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference("ab".repeat(32),
+                    32, 16, 2, 1, "Photo " + i, PrintMode.COLOR, 0x224466, 32, 16));
+            inventory.setItem(9, photo);
+            menu.clicked(18, 0, net.minecraft.world.inventory.ClickType.QUICK_MOVE, player);
+            helper.assertTrue(inventory.getItem(9).isEmpty() == (i < 18), "Exactly 18 prints fit");
+        }
+        helper.assertValueEqual(menu.slots.size(), 54, "18 photo slots plus 36 player slots");
+        helper.assertTrue(!menu.slots.get(0).mayPlace(new ItemStack(ModItems.IMAGE.get())), "Reject blanks");
+        helper.assertTrue(!menu.slots.get(0).mayPlace(book), "Reject nested books");
+        helper.assertTrue(!menu.slots.get(0).mayPlace(new ItemStack(Items.PAPER)), "Reject other items");
+        // Remove a middle image and verify its hole survives save/reopen.
+        menu.clicked(5, 0, net.minecraft.world.inventory.ClickType.PICKUP, player);
+        helper.assertTrue(menu.getCarried().is(ModItems.IMAGE.get()), "Photo can be removed");
+        var saved = ItemStack.parseOptional(helper.getLevel().registryAccess(),
+                (CompoundTag) book.save(helper.getLevel().registryAccess()));
+        menu.removed(player);
+        inventory.setItem(0, saved);
+        var reopened = new me.jamino.printer.inventory.PhotobookMenu(44, inventory, 0);
+        helper.assertTrue(reopened.slots.get(5).getItem().isEmpty(), "Empty page slot survives NBT");
+        helper.assertValueEqual(reopened.slots.get(17).getItem().get(ModDataComponents.IMAGE_REFERENCE.get()).title(),
+                "Photo 17", "Last page survives NBT");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void photobookLocksMainAndOffhandAgainstAllMovement(GameTestHelper helper) {
+        var player = player(helper, machine(helper));
+        var inventory = player.getInventory();
+        for (int bookSlot : new int[]{0, 40}) {
+            inventory.clearContent();
+            ItemStack book = new ItemStack(ModItems.PHOTOBOOK.get());
+            inventory.setItem(bookSlot, book);
+            inventory.setItem(9, new ItemStack(Items.DIAMOND));
+            var menu = new me.jamino.printer.inventory.PhotobookMenu(43, inventory, bookSlot);
+            player.containerMenu = menu;
+            helper.assertTrue(menu.stillValid(player), "Opens in either hand");
+            menu.clicked(18, bookSlot, net.minecraft.world.inventory.ClickType.SWAP, player);
+            helper.assertTrue(inventory.getItem(bookSlot) == book, "Swap cannot move the open book");
+            helper.assertTrue(inventory.getItem(9).is(Items.DIAMOND), "Swap cannot overwrite inventory");
+            if (bookSlot == 0) {
+                for (var type : new net.minecraft.world.inventory.ClickType[]{
+                        net.minecraft.world.inventory.ClickType.PICKUP, net.minecraft.world.inventory.ClickType.QUICK_MOVE,
+                        net.minecraft.world.inventory.ClickType.THROW, net.minecraft.world.inventory.ClickType.SWAP}) {
+                    menu.clicked(45, 1, type, player);
+                    helper.assertTrue(inventory.getItem(0) == book, "Carrier locked for " + type);
+                }
+            }
+            inventory.setItem(bookSlot, book.copy());
+            helper.assertTrue(!menu.stillValid(player), "Replacement book invalidates old menu");
+            menu.clicked(18, 0, net.minecraft.world.inventory.ClickType.PICKUP, player);
+            helper.assertTrue(inventory.getItem(9).is(Items.DIAMOND), "Stale menu cannot edit inventory");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void invalidUploadStartDoesNotChangePrinterState(GameTestHelper helper) {
+        var printer = machine(helper);
+        var player = player(helper, printer);
+        String status = printer.getStatusKey();
+        ServerUploads.begin(player, new ModNetworking.BeginUploadPayload(printer.getBlockPos(), UUID.randomUUID(), 0, "invalid"));
+        helper.assertValueEqual(printer.getStatusKey(), status, "Rejected reservation leaves printer state unchanged");
+        helper.assertTrue(!printer.isPrinting(), "Rejected upload does not start a job");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void bundledReadersWorkInTheGameModuleLayer(GameTestHelper helper) throws Exception {
         for (String name : java.util.List.of("lossless.webp", "lossy.webp", "alpha.webp", "animated.webp", "sample.ico", "sample.tga")) {
             try (var stream = PrinterGameTests.class.getResourceAsStream("/images/" + name)) {
@@ -78,7 +156,7 @@ public final class PrinterGameTests {
     public static void uploadFailuresLeaveSuppliesAndAdvancementsUntouched(GameTestHelper helper) {
         var printer = machine(helper); var player = player(helper, printer);
         printer.setItem(0, new ItemStack(Items.PAPER, 3));
-        printer.setItem(1, new ItemStack(Items.INK_SAC, 3));
+        printer.setItem(1, new ItemStack(ModItems.BLACK_CARTRIDGE.get()));
         UUID id = UUID.randomUUID();
         byte[] invalid = "not an image".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         ServerUploads.begin(player, new ModNetworking.BeginUploadPayload(printer.getBlockPos(), id, invalid.length, "Bad"));
@@ -88,7 +166,7 @@ public final class PrinterGameTests {
                     helper.assertTrue(printer.getPreset().isEmpty(), "Invalid bytes cannot save a preset");
                     helper.assertFalse(done(player, "load"), "Failed decode cannot grant advancement");
                     helper.assertValueEqual(printer.getItem(0).getCount(), 3, "Paper untouched");
-                    helper.assertValueEqual(printer.getItem(1).getCount(), 3, "Ink untouched");
+                    helper.assertValueEqual(printer.getItem(1).getCount(), 1, "Ink untouched");
                     PrinterJobService.LOAD_THROTTLE.remove(player.getUUID());
                     UUID next = UUID.randomUUID();
                     ServerUploads.begin(player, new ModNetworking.BeginUploadPayload(printer.getBlockPos(), next, 100, "Interrupted"));
@@ -200,7 +278,7 @@ public final class PrinterGameTests {
         ImageStore.putSource(helper.getLevel().getServer(), source);
         printer.setPreset(new PrinterPreset(source.contentId(), "Ink policy", 32, 16, 1, 1, 0xB02E26, 32, 16));
         printer.setItem(0, new ItemStack(Items.PAPER, 4));
-        printer.setItem(1, new ItemStack(Items.INK_SAC, 4));
+        printer.setItem(1, new ItemStack(ModItems.BLACK_CARTRIDGE.get()));
         PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x224466);
         helper.assertValueEqual(printer.getPreset().orElseThrow().backgroundColor(), 0xB02E26,
                 "Colored background payload rejected with ink sac");
@@ -212,7 +290,7 @@ public final class PrinterGameTests {
         helper.assertFalse(printer.isPrinting(), "Redstone cannot bypass background policy");
         helper.assertTrue(printer.getItem(2).isEmpty(), "Rejected prints produce no output");
         helper.assertValueEqual(printer.getItem(0).getCount(), 4, "Rejected prints do not consume paper");
-        helper.assertValueEqual(printer.getItem(1).getCount(), 4, "Rejected prints do not consume ink");
+        helper.assertValueEqual(printer.getItem(1).getCount(), 1, "Rejected prints do not consume ink");
         printer.updateRedstone(false);
         PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x000000);
         PrinterJobService.requestBackground(helper.getLevel(), printer.getBlockPos(), 0x808080);
@@ -231,7 +309,7 @@ public final class PrinterGameTests {
                 .thenExecute(() -> {
                     assertMonochromeBackground(helper, printer, 0xFFFFFF);
                     helper.assertValueEqual(printer.getItem(0).getCount(), 2, "Two valid prints consume two paper");
-                    helper.assertValueEqual(printer.getItem(1).getCount(), 2, "Two valid prints consume two sacs");
+                    helper.assertValueEqual(printer.getItem(1).getDamageValue(), 2, "Two valid prints consume two charges");
                     helper.assertFalse(done(player, "color"), "Ink sac prints cannot grant color advancement");
                 }).thenSucceed();
     }
@@ -255,7 +333,7 @@ public final class PrinterGameTests {
         printer.setItem(1, new ItemStack(ModItems.COLOR_CARTRIDGE.get()));
         long job = printer.beginJob("gui.printer.status.printing");
         helper.assertTrue(printer.matchesPrint(preset, PrintMode.COLOR), "Initial supplies match");
-        printer.setItem(1, new ItemStack(Items.INK_SAC));
+        printer.setItem(1, new ItemStack(ModItems.BLACK_CARTRIDGE.get()));
         helper.assertFalse(printer.matchesPrint(preset, PrintMode.COLOR), "Ink swap must reject stale result");
         ItemStack carried = new ItemStack(ModItems.PRINTER.get()); printer.copyPresetToItem(carried);
         helper.setBlock(MACHINE, Blocks.AIR); helper.setBlock(MACHINE, ModBlocks.PRINTER.get());
@@ -278,7 +356,7 @@ public final class PrinterGameTests {
         helper.setBlock(MACHINE.west(), Blocks.HOPPER.defaultBlockState().setValue(net.minecraft.world.level.block.HopperBlock.FACING, Direction.EAST));
         var ink = (net.minecraft.world.level.block.entity.HopperBlockEntity) helper.getBlockEntity(MACHINE.above());
         var paper = (net.minecraft.world.level.block.entity.HopperBlockEntity) helper.getBlockEntity(MACHINE.west());
-        ink.setItem(0, new ItemStack(Items.INK_SAC, 3)); paper.setItem(0, new ItemStack(Items.PAPER, 3));
+        ink.setItem(0, new ItemStack(ModItems.BLACK_CARTRIDGE.get())); paper.setItem(0, new ItemStack(Items.PAPER, 3));
         helper.startSequence().thenWaitUntil(() -> helper.assertTrue(printer.hasPrintingSupplies(), "Hoppers supply printer"))
                 .thenExecute(() -> {
                     helper.assertTrue(printer.hasAutomatedSupplies(), "Real hopper input records automation");

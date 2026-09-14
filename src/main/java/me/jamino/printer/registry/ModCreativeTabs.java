@@ -17,8 +17,9 @@ public final class ModCreativeTabs {
                     .icon(() -> ModItems.PRINTER.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.PRINTER.get());
+                        output.accept(ModItems.BLACK_CARTRIDGE.get());
                         output.accept(ModItems.COLOR_CARTRIDGE.get());
-                        output.accept(ModItems.IMAGE.get());
+                        output.accept(ModItems.PHOTOBOOK.get());
                     })
                     .build());
 

@@ -230,7 +230,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         var ink = menu.getPrinter() == null ? net.minecraft.world.item.ItemStack.EMPTY
                 : menu.slots.get(PrinterBlockEntity.INK_SLOT).getItem();
         Component model = tr(ink.is(ModItems.COLOR_CARTRIDGE.get()) ? "model.color"
-                : ink.is(net.minecraft.world.item.Items.INK_SAC) ? "model.monochrome" : "model");
+                : ink.is(ModItems.BLACK_CARTRIDGE.get()) ? "model.monochrome" : "model");
         graphics.drawString(font, model, 238 - font.width(model), 7, 0xFFB7B7A0, false);
         graphics.drawString(font, tr("source"), 12, 18, 0xFF424C43, false);
         centeredLabel(graphics, tr("preview"), 216, 18, 0xFF424C43);

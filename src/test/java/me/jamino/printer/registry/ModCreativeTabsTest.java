@@ -25,7 +25,7 @@ class ModCreativeTabsTest {
         var parameters = new CreativeModeTab.ItemDisplayParameters(FeatureFlags.DEFAULT_FLAGS,
                 false, HolderLookup.Provider.create(Stream.empty()));
         tab.buildContents(parameters);
-        var expected = List.of(ModItems.PRINTER.get(), ModItems.COLOR_CARTRIDGE.get(), ModItems.IMAGE.get());
+        var expected = List.of(ModItems.PRINTER.get(), ModItems.BLACK_CARTRIDGE.get(), ModItems.COLOR_CARTRIDGE.get(), ModItems.PHOTOBOOK.get());
         assertEquals(expected, tab.getDisplayItems().stream().map(ItemStack::getItem).toList());
         assertEquals(expected, tab.getSearchTabDisplayItems().stream().map(ItemStack::getItem).toList());
     }
@@ -36,6 +36,7 @@ class ModCreativeTabsTest {
         functional.buildContents(new CreativeModeTab.ItemDisplayParameters(FeatureFlags.DEFAULT_FLAGS,
                 false, VanillaRegistries.createLookup()));
         assertTrue(functional.getDisplayItems().stream().noneMatch(stack -> stack.is(ModItems.PRINTER.get())
+                || stack.is(ModItems.BLACK_CARTRIDGE.get()) || stack.is(ModItems.PHOTOBOOK.get())
                 || stack.is(ModItems.COLOR_CARTRIDGE.get()) || stack.is(ModItems.IMAGE.get())));
     }
 }

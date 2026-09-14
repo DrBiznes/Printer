@@ -66,7 +66,7 @@ public final class PrinterMenu extends AbstractContainerMenu {
             if (!moveItemStackTo(stack, 3, slots.size(), true)) return ItemStack.EMPTY;
         } else if (stack.is(Items.PAPER)) {
             if (!moveItemStackTo(stack, 0, 1, false)) return ItemStack.EMPTY;
-        } else if (stack.is(Items.INK_SAC) || stack.is(ModItems.COLOR_CARTRIDGE.get())) {
+        } else if (stack.is(ModItems.BLACK_CARTRIDGE.get()) || stack.is(ModItems.COLOR_CARTRIDGE.get())) {
             if (!moveItemStackTo(stack, 1, 2, false)) return ItemStack.EMPTY;
         } else {
             return ItemStack.EMPTY;

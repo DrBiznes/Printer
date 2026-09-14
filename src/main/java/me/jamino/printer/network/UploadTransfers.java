@@ -23,13 +23,17 @@ public final class UploadTransfers<T> {
     }
 
     public Transfer<T> begin(UUID player, UUID id, int size, int policyLimit, T target, long now) throws ImageFailure {
-        if (size <= 0 || size > policyLimit || size > MAX_TRANSFER_BYTES) throw new ImageFailure(TOO_LARGE);
-        if (transfers.containsKey(player) || transfers.size() >= 4 || reservedBytes + size > MAX_TRANSFER_BYTES)
-            throw new ImageFailure(BUSY);
+        checkBegin(player, size, policyLimit);
         Transfer<T> transfer = new Transfer<>(id, target, new byte[size], now + TIMEOUT_NANOS, new int[2]);
         transfers.put(player, transfer);
         reservedBytes += size;
         return transfer;
+    }
+
+    public void checkBegin(UUID player, int size, int policyLimit) throws ImageFailure {
+        if (size <= 0 || size > policyLimit || size > MAX_TRANSFER_BYTES) throw new ImageFailure(TOO_LARGE);
+        if (transfers.containsKey(player) || transfers.size() >= 4 || reservedBytes + size > MAX_TRANSFER_BYTES)
+            throw new ImageFailure(BUSY);
     }
 
     public Transfer<T> accept(UUID player, UUID id, int index, byte[] bytes, long now) throws ImageFailure {

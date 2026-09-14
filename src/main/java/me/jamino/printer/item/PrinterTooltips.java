@@ -30,13 +30,7 @@ public final class PrinterTooltips {
             condition(tooltip, "printer", 1);
             behaviour(tooltip, "printer", 1);
             behaviour(tooltip, "printer", 2);
-            behaviour(tooltip, "printer", 7);
-            condition(tooltip, "printer", 2);
             behaviour(tooltip, "printer", 3);
-            behaviour(tooltip, "printer", 4);
-            condition(tooltip, "printer", 3);
-            behaviour(tooltip, "printer", 5);
-            behaviour(tooltip, "printer", 6);
         } else {
             appendHint(tooltip);
         }
@@ -46,19 +40,27 @@ public final class PrinterTooltips {
         tooltip.add(line("item.printer.color_cartridge.charges", Math.max(0, charges)));
         tooltip.add(line("item.printer.color_cartridge.tooltip.summary"));
         if (expanded) {
-            condition(tooltip, "color_cartridge", 1);
             behaviour(tooltip, "color_cartridge", 1);
-            behaviour(tooltip, "color_cartridge", 2);
         } else {
             appendHint(tooltip);
         }
+    }
+
+    public static void appendBlackCartridge(List<Component> tooltip, int charges, boolean expanded) {
+        tooltip.add(line("item.printer.black_cartridge.charges", Math.max(0, charges)));
+        tooltip.add(line("item.printer.black_cartridge.tooltip.summary"));
+        if (expanded) behaviour(tooltip, "black_cartridge", 1); else appendHint(tooltip);
+    }
+
+    public static void appendPhotobook(List<Component> tooltip, int count, boolean expanded) {
+        tooltip.add(line("item.printer.photobook.tooltip.summary", count, me.jamino.printer.inventory.PhotobookMenu.CAPACITY));
+        if (expanded) behaviour(tooltip, "photobook", 1); else appendHint(tooltip);
     }
 
     public static void appendImage(List<Component> tooltip, @Nullable ImageReference reference, boolean expanded) {
         if (reference == null) {
             tooltip.add(line("item.printer.image.unprinted"));
             if (expanded) {
-                condition(tooltip, "image", 1);
                 behaviour(tooltip, "image", 1);
             } else {
                 appendHint(tooltip);
@@ -70,14 +72,9 @@ public final class PrinterTooltips {
         tooltip.add(Component.translatable("item.printer.image.title", title).withStyle(ChatFormatting.GOLD));
         behaviour(tooltip, "image", 4, reference.blocksWide(), reference.blocksHigh());
         if (expanded) {
-            condition(tooltip, "image", 2);
-            behaviour(tooltip, "image", 2, reference.sourceWidth(), reference.sourceHeight());
-            behaviour(tooltip, "image", 3, reference.pixelWidth(), reference.pixelHeight());
             behaviour(tooltip, "image", 5, backgroundName(reference.backgroundColor()));
             behaviour(tooltip, "image", 6, Component.translatable("gui.printer.mode." + reference.mode().getSerializedName()));
-            condition(tooltip, "image", 3);
             behaviour(tooltip, "image", 7);
-            behaviour(tooltip, "image", 8);
         } else {
             appendHint(tooltip);
         }

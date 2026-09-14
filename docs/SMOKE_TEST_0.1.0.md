@@ -2,29 +2,35 @@
 
 Run the same scenarios in a fresh single-player instance and on a fresh dedicated server with a separate client. Use Java 21, Minecraft 1.21.1, NeoForge 21.1.248 and the exact candidate JAR on both sides. Keep existing development worlds untouched. Only mark a result Pass after observing it; automated tests do not sign off gameplay.
 
-Current test build: **0.0.12** (release target: **0.1.0**, final requested texture/GUI pass). Artifact: `build/libs/printer-0.0.12.jar`. SHA-256: `76aab78dfb9ddd320873572477cdafe8d28e852ca52bd5941d8c88e3daa34f13`.
+Current release candidate: **0.1.0**, including Black Ink Cartridges and Photobook. Artifact: `build/libs/printer-0.1.0.jar`. SHA-256: `18a27cef709beaf0341adcd259eb9f5aa21de44a24172b70b5fc60b3f29d5d95`.
 
-Art-pass verification: offline build passed all 108 unit tests with zero failures/errors using process-local `JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=C:/hackerman/Printer/build/tmp` and TEMP/TMP pointed at that directory. All 13 packaged PNGs match the source assets. `build/art-preview.png` is a reviewed design preview, not an in-game capture; gameplay sign-off remains pending.
+Final ordinary build verification (2026-09-13): `gradlew.bat build --offline` passed **116 tests**, zero failures/errors/skips. The packaged JAR reports version 0.1.0; all 15 textures and the new recipes match source resources; both new items, menu/screen, 10 bundled decoder libraries, license and credits are present. Opt-in GameTest classes/fixtures are absent. Size: 999,419 bytes. Process-local Java workaround: `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=C:/hackerman/Printer/build`.
 
-Tester / date: **maintainer testing in progress — 2026-09-11**; exact-artifact matrix sign-off pending.
+Photobook layout follow-up: moved page buttons beside the top storage row, moved the counter to the title header, and reused the Printer Image ghost in empty photo slots. The rebuilt JAR passes all 116 tests; in-game visual confirmation remains with the maintainer.
+
+Automated integration verification (2026-09-13): **10/10 GameTests pass**, including 18-slot photobook persistence, main/offhand carrier locking, and upload preflight. The isolated `build/gametest-0.1.0-run` world was reused; this does not certify a fresh world or the exact packaged JAR. Art contact sheet `build/art-preview.png` was inspected; it is a design preview, not a game capture.
+
+Tester / date: **maintainer sign-off pending**. See [upload review](UPLOAD_REVIEW_0.1.0.md) for code-level readiness and limits.
 
 Instance settings and deviations: **pending**
 
 | Scenario | Expected result | Single-player | Dedicated server |
 | --- | --- | --- | --- |
 | Startup | No missing registries, client-class loading failures, or error logs; recipes load. | Pending | Pending |
-| Final texture/GUI pass | At normal/large GUI scales: status and Inventory do not touch; Load/Browse/Print icons have tooltips and keyboard focus; Browse becomes Cancel while uploading; size symbols are centered. Header changes immediately between P-01 (empty), P-01 / B&W (ink sac), and P-01 / COLOR (cartridge), including hopper changes. Block front is recognizable in every orientation; trays appear only on the paper/output sides; top has the ink slot; blank Image has crisp pixels. | Pending | Pending |
-| Discoverability | Printer tab, printer icon; Printer / Color Cartridge / Image order; no Functional Blocks duplicates; creative search finds items. | Pending | Pending |
-| Obtain/craft | Both recipes work; obtain advancement awards once. | Pending | Pending |
+| Final texture/GUI pass | At normal/large GUI scales: status and Inventory do not touch; Load/Browse/Print icons have tooltips and keyboard focus; Browse becomes Cancel while uploading; size symbols are centered. Header changes immediately between P-01 (empty), P-01 / B&W (Black Ink Cartridge), and P-01 / COLOR (cartridge), including hopper changes. Block front is recognizable in every orientation; trays appear only on the paper/output sides; top has the ink slot; blank Image has crisp pixels. | Pending | Pending |
+| Discoverability | Printer tab, printer icon; Printer / Black Ink Cartridge / Color Cartridge / Photobook order; blank Image excluded; no Functional Blocks duplicates; creative search finds items. | Pending | Pending |
+| Obtain/craft | All four recipes and unlocks work; obtain advancement awards once. | Pending | Pending |
+| Photobook | Main/offhand opening; 18 slots, only printed Images accepted; empty/full/odd/sparse pages and long titles render cleanly. Page buttons/Left/Right arrows, Shift-click, close/reopen, save/restart, disconnect, death, and both-hand carrier locks preserve items exactly once. Check normal/large GUI scales. | Pending | Pending |
+| Local upload | File picker selects only the chosen file; real client/server transfer produces the same print as URL input. Cancellation, closing/walking away, disconnect, disabled uploads, invalid/oversized files and reconnection leave a usable printer and preserve the previous preset. | Pending | Pending |
 | URL load | Public direct PNG/JPEG and one bundled-codec fixture load, preview and sizing agree; load advancement only on success. | Pending | Pending |
 | Invalid input | Malformed URL, unsupported file, HTML, non-public destination, and blocked host reject with translated messages. | Pending | Pending |
 | Limits | Download over configured byte limit and image over 4096 pixels on an axis reject without allocating the full bitmap; accepted large source scales to configured saved resolution. | Pending | Pending |
-| Manual print | Paper cost matches area; color consumes one charge, monochrome one sac; full output prevents print; first-print advancement fires only on success. | Pending | Pending |
+| Manual print | Paper cost matches area; color consumes one charge, monochrome one Black Ink Cartridge; full output prevents print; first-print advancement fires only on success. | Pending | Pending |
 | Background fill | With a PNG whose alpha is confirmed, switch white/red/another color: preview updates, a new color print fills transparent pixels accordingly, opaque white artwork remains white, and wall canvas margins/back/edges use the selected color. | Re-test pending; white pixels/edges reported | Pending |
-| Clean monochrome | Print transparent artwork using ink sacs with pure white and pure black backgrounds. Only artwork is dithered to black/white; transparent regions stay uniformly background-colored, opaque ink patterns do not change with background selection, and soft alpha edges blend without retaining source hues. Entity sides/back keep the saved background color. | Pending | Pending |
-| Ink/background policy | Ink sacs enable only pure black/white swatches. Swap a colored preset from a cartridge to an ink sac: printing is disabled with actionable help, manual/redstone requests produce no output and consume nothing, and colored background payloads cannot bypass the rule. Choosing black/white restores ink-sac printing; a usable cartridge allows colored backgrounds again. Repeat with a carried/reloaded preset. | Pending | Pending |
+| Clean monochrome | Print transparent artwork using Black Ink Cartridges with pure white and pure black backgrounds. Only artwork is dithered to black/white; transparent regions stay uniformly background-colored, opaque ink patterns do not change with background selection, and soft alpha edges blend without retaining source hues. Entity sides/back keep the saved background color. | Pending | Pending |
+| Ink/background policy | Black Ink Cartridges enable only pure black/white swatches. Swap a colored preset from a cartridge to an Black Ink Cartridge: printing is disabled with actionable help, manual/redstone requests produce no output and consume nothing, and colored background payloads cannot bypass the rule. Choosing black/white restores black-cartridge printing; a usable cartridge allows colored backgrounds again. Repeat with a carried/reloaded preset. | Pending | Pending |
 | Opaque image canvas | Print the same fully opaque image with red and another background. The image artwork stays unchanged, but each placed entity's sides/back/exposed margins use that print's saved color, even if both prints share identical PNG content. Repeat after save/reload. | Pending | Pending |
-| Tooltips | Every item with/without Shift; fresh/partially used/depleted cartridges; blank/titled/untitled Images; Create/AnalogAudio-style summary/condition/behaviour formatting; background color details; no decorative frame data. | Pending | Pending |
+| Tooltips | Every item with/without Shift; fresh/partially used/depleted cartridges; blank/titled/untitled Images; Create/AnalogAudio-style summary/condition/behaviour formatting; background color details; no decorative frame data or automation instructions. | Pending | Pending |
 | Hoppers | Ink above, paper at intended side, extraction below/right; invalid sides/items rejected. Repeat in all four horizontal orientations. | Pending | Pending |
 | Redstone | First rising edge prints once, held signal does not repeat, release/reapply prints once more; busy pulses do not queue extra output. | Pending | Pending |
 | Automated advancement | Valid hopper/item-handler supply followed by successful redstone print credits the documented player once; failed/manual prints do not satisfy automation criterion. | Pending | Pending |
@@ -36,7 +42,7 @@ Instance settings and deviations: **pending**
 | Safety/logging | Timeout and storage-full jobs leave machine usable; no sensitive URL text in player messages/logs; packets from invalid or distant menus rejected. | Pending | Pending |
 | Fresh-world requirement | Start a new 0.1.0 world; confirm the release documentation clearly states that pre-0.1.0 development worlds and items are unsupported. No old-save migration test is required. | Pending | Pending |
 
-Automated verification: `./gradlew.bat build`; retain test reports with the candidate checksum. The working version is currently 0.0.12 for maintainer testing; restore 0.1.0 for the final artifact. Exact-artifact fresh-instance sign-off and publication remain pending until all required rows pass or a failing feature is explicitly removed from the release contract. Texture refinement and GUI texture changes remain a separate final pass; rebuild and repeat exact-artifact checks after that pass.
+Automated verification: `./gradlew.bat build`; retain test reports with the candidate checksum. Version is now 0.1.0. Exact-artifact fresh-instance sign-off and publication remain pending until all required rows pass or a failing feature is explicitly removed from the release contract. The art pass is implemented; rebuild and repeat exact-artifact checks after any further changes.
 
 ## Ink/background policy follow-up — 2026-09-11
 

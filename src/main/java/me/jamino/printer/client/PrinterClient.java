@@ -21,6 +21,7 @@ public final class PrinterClient {
             if (net.minecraft.client.Minecraft.getInstance().screen instanceof PrinterScreen screen) screen.acceptUpload(payload);
         };
         event.register(ModMenus.PRINTER.get(), PrinterScreen::new);
+        event.register(ModMenus.PHOTOBOOK.get(), PhotobookScreen::new);
     }
 
     public static void registerExtensions(RegisterClientExtensionsEvent event) {

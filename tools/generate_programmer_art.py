@@ -85,18 +85,38 @@ def image_item():
     return im
 
 
-def cartridge():
+def cartridge(color=True):
     im,d = new()
+    # Shared P-01 shell: broad cream housing, dark inset, teal latch and brass contacts.
     d.rectangle((5,1,10,2),fill=INK)
-    d.line((6,1,9,1),fill=MID)
-    box(d,(3,3,12,13),SHADOW,MID,INK)
-    box(d,(4,4,11,11),PAPER,LIGHT,WOOD)
-    for x,c in [(5,CYAN),(7,MAGENTA),(9,GOLD)]:
-        d.rectangle((x,5,x+1,9),fill=c)
-        d.point((x,5),fill=LIGHT)
-    d.line((5,11,10,11),fill=INK)
-    for x in (5,8,10):
-        d.rectangle((x,13,x,14),fill=GOLD)
+    d.line((6,1,9,1),fill=TEAL)
+    d.rectangle((2,3,13,12),fill=INK)
+    box(d,(3,3,12,11),SHELL,LIGHT,SHADOW)
+    d.rectangle((4,5,11,9),fill=INK)
+    if color:
+        for x,c in [(5,CYAN),(7,MAGENTA),(9,GOLD)]:
+            d.rectangle((x,6,x+1,8),fill=c)
+    else:
+        d.rectangle((5,6,10,8),fill='#111b1a')
+        d.line((5,6,10,6),fill=SHADOW)
+        d.point((10,8),fill=PAPER)
+    d.rectangle((4,12,11,13),fill=SHADOW)
+    for x in (5,8,10): d.rectangle((x,13,x,14),fill=GOLD)
+    return im
+
+
+def photobook():
+    im,d = new()
+    d.rectangle((2,1,13,14),fill=INK)
+    box(d,(3,2,12,12),TEAL,CYAN,SHADOW)
+    d.rectangle((3,2,4,12),fill='#365e59')
+    d.rectangle((5,4,11,10),fill=PAPER)
+    d.rectangle((6,5,10,8),fill=SHADOW)
+    d.point((9,5),fill=GOLD)
+    d.polygon([(6,8),(8,6),(10,8)],fill=TEAL)
+    d.line((4,13,12,13),fill=PAPER)
+    d.point((4,4),fill=GOLD)
+    d.point((4,10),fill=GOLD)
     return im
 
 
@@ -183,7 +203,8 @@ def main():
     outputs={'block/printer_front.png':front(), 'block/printer_front_printing.png':front(True),
         'block/printer_input.png':side(), 'block/printer_output.png':side(True),
         'block/printer_top.png':top,'block/printer_back.png':back,'block/printer_bottom.png':bottom,
-        'item/image.png':image_item(),'item/color_cartridge.png':cartridge(),'gui/printer.png':panel()}
+        'item/image.png':image_item(),'item/color_cartridge.png':cartridge(),
+        'item/black_cartridge.png':cartridge(False),'item/photobook.png':photobook(),'gui/printer.png':panel()}
     for kind in ('paper','ink','output'): outputs[f'gui/ghost_{kind}.png']=ghost(kind)
     for name,im in outputs.items():
         p=TEXTURES/name
@@ -249,14 +270,14 @@ def preview(outputs):
         d.rectangle((x+1,y+1,x+8,y+6),fill=c)
     for x,k in [(18,'paper'),(48,'ink'),(112,'output')]: im.alpha_composite(ghost(k),(x,91))
     im.alpha_composite(image_item().resize((44,44),Image.Resampling.NEAREST),(194,30))
-    board=Image.new('RGBA',(1130,850),'#202927')
+    board=Image.new('RGBA',(1130,980),'#202927')
     board.alpha_composite(im.resize((768,714),Image.Resampling.NEAREST),(12,48))
     text(board,'PRINTER / P-01 - PROGRAMMATIC ART PREVIEW',12,18,LIGHT)
     for i,(name,asset) in enumerate((n,a) for n,a in outputs.items() if n.startswith(('item/','block/'))):
         x,y=810+i%2*155,48+i//2*145
         board.alpha_composite(asset.resize((96,96),Image.Resampling.NEAREST),(x,y))
         text(board,name.split('/')[-1].replace('printer_','').replace('.png',''),x,y+102,LIGHT)
-    text(board,'16 x 16 BLOCKS + ITEMS / PIXEL GUI / ORIGINAL ASSETS',12,784,LIGHT)
+    text(board,'16 x 16 BLOCKS + ITEMS / PIXEL GUI / ORIGINAL ASSETS',12,942,LIGHT)
     p=ROOT/'build/art-preview.png';p.parent.mkdir(exist_ok=True);board.save(p)
 
 if __name__=='__main__': main()

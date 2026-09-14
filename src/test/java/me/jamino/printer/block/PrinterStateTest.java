@@ -17,6 +17,14 @@ class PrinterStateTest {
         return new PrinterBlockEntity(BlockPos.ZERO, ModBlocks.PRINTER.get().defaultBlockState().setValue(PrinterBlock.FACING, facing));
     }
 
+    @Test
+    void rawInkSacsAreNotPrinterSupplies() {
+        var printer = new me.jamino.printer.block.entity.PrinterBlockEntity(
+                net.minecraft.core.BlockPos.ZERO, me.jamino.printer.registry.ModBlocks.PRINTER.get().defaultBlockState());
+        assertFalse(printer.canPlaceItem(1, new ItemStack(Items.INK_SAC)));
+        assertTrue(printer.canPlaceItem(1, new ItemStack(ModItems.BLACK_CARTRIDGE.get())));
+    }
+
     @Test void syncKeepsBusyButDiskLoadInterruptsJobsAndPreservesPresetAndOwner() {
         var printer = printer(Direction.NORTH);
         var preset = new PrinterPreset("a".repeat(64), "Photo", 512, 256, 4, 2, 0x224466, 3000, 1500);
@@ -45,13 +53,13 @@ class PrinterStateTest {
                 boolean paper = side == facing.getCounterClockWise(), ink = side == Direction.UP;
                 if (handler.getSlots() > 0) {
                     assertEquals(paper, handler.insertItem(0, new ItemStack(Items.PAPER), true).isEmpty());
-                    assertEquals(ink, handler.insertItem(0, new ItemStack(Items.INK_SAC), true).isEmpty());
+                    assertEquals(ink, handler.insertItem(0, new ItemStack(ModItems.BLACK_CARTRIDGE.get()), true).isEmpty());
                     assertFalse(handler.insertItem(0, new ItemStack(Items.DIRT), true).isEmpty());
                 } else assertTrue(side == facing || side == facing.getOpposite());
             }
             assertEquals(0, printer.getAutomationHandler(null).getSlots());
             assertFalse(printer.hasAutomatedSupplies(), "Simulations must not grant automation credit");
-            printer.getAutomationHandler(Direction.UP).insertItem(0, new ItemStack(Items.INK_SAC), false);
+            printer.getAutomationHandler(Direction.UP).insertItem(0, new ItemStack(ModItems.BLACK_CARTRIDGE.get()), false);
             assertTrue(printer.hasAutomatedSupplies());
             printer.removeItem(PrinterBlockEntity.INK_SLOT, 1);
             assertFalse(printer.hasAutomatedSupplies());
@@ -67,9 +75,34 @@ class PrinterStateTest {
         assertFalse(printer.hasPrintingSupplies());
         printer.setItem(1, new ItemStack(ModItems.COLOR_CARTRIDGE.get()));
         assertTrue(printer.matchesPrint(preset, PrintMode.COLOR));
-        printer.setItem(1, new ItemStack(Items.INK_SAC));
+        printer.setItem(1, new ItemStack(ModItems.BLACK_CARTRIDGE.get()));
         assertFalse(printer.matchesPrint(preset, PrintMode.COLOR));
         assertTrue(printer.matchesPrint(preset, PrintMode.MONOCHROME));
+        ItemStack emptyBlackCartridge = new ItemStack(ModItems.BLACK_CARTRIDGE.get());
+        emptyBlackCartridge.setDamageValue(ModItems.CARTRIDGE_CHARGES);
+        printer.setItem(1, emptyBlackCartridge);
+        assertFalse(printer.hasPrintingSupplies());
+    }
+
+    @Test void blackCartridgeProvidesThreePrintCharges() {
+        var printer = printer(Direction.NORTH);
+        var preset = new PrinterPreset("a".repeat(64), "", 32, 16, 1, 1,
+                ImageReference.DEFAULT_BACKGROUND_COLOR, 32, 16);
+        printer.setPreset(preset);
+        printer.setItem(0, new ItemStack(Items.PAPER, 3));
+        printer.setItem(1, new ItemStack(ModItems.BLACK_CARTRIDGE.get()));
+
+        assertEquals(ModItems.CARTRIDGE_CHARGES, printer.getItem(1).getMaxDamage());
+        for (int charge = 1; charge <= ModItems.CARTRIDGE_CHARGES; charge++) {
+            assertTrue(printer.hasPrintingSupplies());
+            printer.consumeSupplies();
+            if (charge < ModItems.CARTRIDGE_CHARGES) {
+                assertEquals(charge, printer.getItem(1).getDamageValue());
+            } else {
+                assertTrue(printer.getItem(1).isEmpty());
+            }
+        }
+        assertEquals(0, printer.getItem(0).getCount());
     }
 
     @Test void droppedPrinterComponentRetainsBackgroundAndDoesNotDuplicatePresetNbt() {
@@ -98,7 +131,7 @@ class PrinterStateTest {
         printer.setItem(1, new ItemStack(ModItems.COLOR_CARTRIDGE.get()));
         assertTrue(printer.hasPrintingSupplies());
         assertTrue(printer.canUseBackgroundColor(0xB02E26));
-        printer.setItem(1, new ItemStack(Items.INK_SAC, 3));
+        printer.setItem(1, new ItemStack(ModItems.BLACK_CARTRIDGE.get()));
         assertFalse(printer.hasPrintingSupplies());
         assertFalse(printer.canPrintBackground());
         assertFalse(printer.canUseBackgroundColor(0xB02E26));
@@ -111,7 +144,7 @@ class PrinterStateTest {
             assertTrue(printer.hasPrintingSupplies());
         }
         assertEquals(3, printer.getItem(0).getCount());
-        assertEquals(3, printer.getItem(1).getCount());
+        assertEquals(1, printer.getItem(1).getCount());
     }
 
 }

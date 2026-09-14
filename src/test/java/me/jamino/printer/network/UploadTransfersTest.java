@@ -18,6 +18,16 @@ class UploadTransfersTest {
     private final UploadTransfers<String> uploads = new UploadTransfers<>();
     private final UUID player = UUID.randomUUID(), id = UUID.randomUUID();
 
+    @Test void preflightLeavesExistingSessionAndReservationUntouched() throws Exception {
+        var original = uploads.begin(player, id, 10, 10, "first printer", 0);
+        var failure = assertThrows(ImageFailure.class, () -> uploads.checkBegin(player, 10, 10));
+        assertEquals(ImageFailure.Reason.BUSY, failure.reason());
+        assertSame(original, uploads.get(player));
+        assertEquals(10, uploads.reservedBytes());
+        assertThrows(ImageFailure.class, () -> uploads.checkBegin(UUID.randomUUID(), 0, 10));
+        assertEquals(1, uploads.snapshot().size());
+    }
+
     @Test void assemblesExactBytesWithBoundedOrderedChunksAndReleasesReservation() throws Exception {
         byte[] source = new byte[UploadTransfers.CHUNK_BYTES + 17];
         new java.util.Random(42).nextBytes(source);

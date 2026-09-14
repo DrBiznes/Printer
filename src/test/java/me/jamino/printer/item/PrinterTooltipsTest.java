@@ -35,11 +35,14 @@ class PrinterTooltipsTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void registeredPrinterExplainsWorkflowAndAutomationOnlyOnShift(boolean expanded) throws Exception {
+    void registeredPrinterExplainsWorkflowWithoutAutomation(boolean expanded) throws Exception {
         var tooltip = tooltip(new ItemStack(ModItems.PRINTER.get()), expanded);
         assertHas(tooltip, "item.printer.printer.tooltip.summary");
         assertEquals(!expanded, has(tooltip, HINT));
-        assertDetails(tooltip, "printer", 3, 7, expanded);
+        assertDetails(tooltip, "printer", 1, 3, expanded);
+        assertTrue(tooltip.size() <= 5);
+        assertFalse(tooltip.toString().contains("redstone"));
+        assertFalse(tooltip.toString().contains("hopper"));
     }
 
     @ParameterizedTest
@@ -53,7 +56,8 @@ class PrinterTooltipsTest {
                     "item.printer.color_cartridge.charges").getArgs());
             assertHas(tooltip, "item.printer.color_cartridge.tooltip.summary");
             assertEquals(!expanded, has(tooltip, HINT));
-            assertDetails(tooltip, "color_cartridge", 1, 2, expanded);
+            assertDetails(tooltip, "color_cartridge", 0, 1, expanded);
+            assertTrue(tooltip.size() <= 3);
         }
     }
 
@@ -63,7 +67,7 @@ class PrinterTooltipsTest {
         var tooltip = tooltip(new ItemStack(ModItems.IMAGE.get()), expanded);
         assertHas(tooltip, "item.printer.image.unprinted");
         assertFalse(has(tooltip, "item.printer.image.tooltip.behaviour3"));
-        assertEquals(expanded, has(tooltip, "item.printer.image.tooltip.condition1"));
+        assertFalse(has(tooltip, "item.printer.image.tooltip.condition1"));
         assertEquals(expanded, has(tooltip, "item.printer.image.tooltip.behaviour1"));
         assertEquals(!expanded, has(tooltip, HINT));
     }
@@ -91,8 +95,6 @@ class PrinterTooltipsTest {
                     assertHas(tooltip, "item.printer.image.tooltip.behaviour4");
                     assertArrayEquals(new Object[]{4, 2}, translated(tooltip, "item.printer.image.tooltip.behaviour4").getArgs());
                     if (expanded) {
-                        assertArrayEquals(new Object[]{3000, 1500}, translated(tooltip, "item.printer.image.tooltip.behaviour2").getArgs());
-                        assertArrayEquals(new Object[]{320, 160}, translated(tooltip, "item.printer.image.tooltip.behaviour3").getArgs());
                         Component backgroundName = (Component) translated(tooltip,
                                 "item.printer.image.tooltip.behaviour5").getArgs()[0];
                         String expectedBackgroundKey = background == 0xFFFFFF ? "color.minecraft.white"
@@ -108,13 +110,27 @@ class PrinterTooltipsTest {
                         assertEquals("gui.printer.mode." + mode.getSerializedName(),
                                 ((TranslatableContents) modeName.getContents()).getKey());
                         assertHas(tooltip, "item.printer.image.tooltip.behaviour7");
-                        assertHas(tooltip, "item.printer.image.tooltip.behaviour8");
+                        assertTrue(tooltip.size() <= 5);
                     }
                     assertFalse(tooltip.toString().contains(contentId), "Internal image IDs must not appear in help");
                     assertFalse(tooltip.toString().contains("gui.printer.frame"));
                 }
             }
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void blackCartridgeAndPhotobookHaveCompactTranslatedHelp(boolean expanded) throws Exception {
+        var blackLines = tooltip(new ItemStack(ModItems.BLACK_CARTRIDGE.get()), expanded);
+        assertEquals(3, blackLines.size());
+        assertArrayEquals(new Object[]{3}, translated(blackLines,
+                "item.printer.black_cartridge.charges").getArgs());
+        assertEquals(!expanded, has(blackLines, HINT));
+
+        var photobookLines = tooltip(new ItemStack(ModItems.PHOTOBOOK.get()), expanded);
+        assertEquals(2, photobookLines.size());
+        assertEquals(!expanded, has(photobookLines, HINT));
     }
 
     @Test
