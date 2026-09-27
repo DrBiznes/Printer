@@ -25,6 +25,7 @@ Automated coverage includes source alpha and same-color artwork, color/B&W varia
 Manual checks still needed on the packaged JAR:
 
 - Place a PNG with fully transparent and partly transparent edges on each wall orientation. Print it on a colored background, use a membrane, and check the world is visible through the original transparent pixels with no colored fringe, backing, or margins.
+- Check an image with an opaque bottom edge and transparent top edge from close up and at an angle. Texture sampling clamps at all four edges to prevent opposite-edge bleed; verify no thin line appears above the artwork before or after membrane use.
 - Repeat with B&W ink, fully opaque artwork, multiple overlapping transparent displays, an item frame holding an already-treated Image, and a Photobook.
 - Check a second client sees the change immediately; reconnect/restart and break/re-place the image.
 - Listen to the preview/printing sequences at normal volume and test GUI closing/replacement during playback.

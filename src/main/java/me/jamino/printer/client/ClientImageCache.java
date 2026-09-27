@@ -1,6 +1,7 @@
 package me.jamino.printer.client;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.platform.GlStateManager;
 import me.jamino.printer.Config;
 import me.jamino.printer.Printer;
 import me.jamino.printer.network.ModNetworking;
@@ -15,6 +16,11 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.HashMap;
+
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_WRAP_S;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_WRAP_T;
+import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
 
 public final class ClientImageCache {
     private static final ImageTransfers ASSEMBLIES = new ImageTransfers();
@@ -52,8 +58,7 @@ public final class ClientImageCache {
         if (source == null || source.texture.getPixels() == null) return canonical;
 
         NativeImage image = monochrome(source.texture.getPixels());
-        DynamicTexture texture = new DynamicTexture(image);
-        texture.setFilter(true, false);
+        DynamicTexture texture = createTexture(image);
         ResourceLocation location = Minecraft.getInstance().getTextureManager()
                 .register("printer_monochrome_" + contentId.substring(0, 12), texture);
         CachedTexture derived = new CachedTexture(location, texture,
@@ -73,11 +78,10 @@ public final class ClientImageCache {
         PENDING.put(payload.contentId(), System.currentTimeMillis());
         try {
             NativeImage image = decodePng(png);
-            DynamicTexture texture = new DynamicTexture(image);
+            DynamicTexture texture = createTexture(image);
             ResourceLocation location = Minecraft.getInstance().getTextureManager()
                     .register("printer_" + payload.contentId().substring(0, 12), texture);
             long textureBytes = (long) image.getWidth() * image.getHeight() * 4;
-            texture.setFilter(true, false);
             CachedTexture previous = TEXTURES.put(payload.contentId(), new CachedTexture(location, texture, textureBytes));
             if (previous != null) {
                 cachedBytes -= previous.bytes;
@@ -91,6 +95,17 @@ public final class ClientImageCache {
         } catch (Exception exception) {
             Printer.LOGGER.debug("Failed to decode transferred printer image");
         }
+    }
+
+    private static DynamicTexture createTexture(NativeImage image) {
+        DynamicTexture texture = new DynamicTexture(image);
+        // setFilter also binds this texture. DynamicTexture's default upload leaves
+        // wrapping at GL_REPEAT: linear filtering at UV 0/1 then blends the opposite
+        // edge into this one, including opaque bottom pixels across a transparent top.
+        texture.setFilter(true, false);
+        GlStateManager._texParameter(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        GlStateManager._texParameter(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        return texture;
     }
 
     static NativeImage decodePng(byte[] png) throws IOException {
