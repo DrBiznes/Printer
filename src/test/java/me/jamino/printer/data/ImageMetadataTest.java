@@ -8,8 +8,42 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ImageMetadataTest {
+    @Test void transparentPrintRetainsArtworkAndSurvivesSaveAndNetwork() {
+        for (PrintMode mode : PrintMode.values()) {
+            var paper = new ImageReference("a".repeat(64), 256, 128, 2, 1, "Cutout", mode,
+                    0x224466, 3000, 1500, "b".repeat(64), false);
+            var transparent = paper.withoutBackground();
+            assertEquals(paper.transparentContentId(), transparent.contentId());
+            assertTrue(transparent.transparentBackground());
+            assertEquals(paper.backgroundColor(), transparent.backgroundColor());
+            assertEquals(paper.title(), transparent.title());
+            assertEquals(mode, transparent.mode());
+            assertSame(transparent, transparent.withoutBackground());
+            for (var reference : java.util.List.of(paper, transparent)) {
+                var encoded = ImageReference.CODEC.encodeStart(JsonOps.INSTANCE, reference).getOrThrow();
+                assertEquals(reference, ImageReference.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
+                var buffer = new FriendlyByteBuf(Unpooled.buffer());
+                try {
+                    ImageReference.STREAM_CODEC.encode(buffer, reference);
+                    assertEquals(reference, ImageReference.STREAM_CODEC.decode(buffer));
+                    assertEquals(0, buffer.readableBytes());
+                } finally { buffer.release(); }
+            }
+        }
+    }
+
+    @Test void imageMetadataRequiresBothTransparencyFields() {
+        var image = new ImageReference("a".repeat(64), 16, 16, 1, 1, "Image", PrintMode.COLOR,
+                0xFFFFFF, 16, 16, "b".repeat(64), false);
+        for (String field : java.util.List.of("transparent_content_id", "transparent_background")) {
+            var json = ImageReference.CODEC.encodeStart(JsonOps.INSTANCE, image).getOrThrow().getAsJsonObject();
+            json.remove(field);
+            assertTrue(ImageReference.CODEC.parse(JsonOps.INSTANCE, json).error().isPresent(), field);
+        }
+    }
+
     @Test void imageDimensionsAndBackgroundSurviveSaveAndNetworkWithoutLegacyFallback() {
-        var image = new ImageReference("a".repeat(64), 256, 128, 2, 1, "Photo", PrintMode.COLOR, 0x224466, 3000, 1500);
+        var image = new ImageReference("a".repeat(64), 256, 128, 2, 1, "Photo", PrintMode.COLOR, 0x224466, 3000, 1500, "b".repeat(64), false);
         var encoded = ImageReference.CODEC.encodeStart(JsonOps.INSTANCE, image).getOrThrow();
         assertEquals(image, ImageReference.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
         var buffer = new FriendlyByteBuf(Unpooled.buffer());
@@ -46,7 +80,7 @@ class ImageMetadataTest {
 
     @Test void backgroundColorsAreNative24BitValuesAndWhiteIsTheDefinedDefault() {
         assertEquals(0xFFFFFF, ImageReference.DEFAULT_BACKGROUND_COLOR);
-        var image = new ImageReference("a".repeat(64), 16, 16, 1, 1, "", PrintMode.COLOR, 0xFF123456, 16, 16);
+        var image = new ImageReference("a".repeat(64), 16, 16, 1, 1, "", PrintMode.COLOR, 0xFF123456, 16, 16, "b".repeat(64), false);
         assertEquals(0x123456, image.backgroundColor());
         assertFalse(ImageReference.CODEC.encodeStart(JsonOps.INSTANCE, image).getOrThrow().getAsJsonObject().has("frame"));
     }

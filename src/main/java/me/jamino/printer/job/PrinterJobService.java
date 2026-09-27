@@ -53,6 +53,7 @@ public final class PrinterJobService {
         }
         if (!acquireLoad(player)) { tell(player, RATE_LIMIT); return; }
         long job = printer.beginJob("gui.printer.status.loading");
+        ModNetworking.sendPrinterSound(player, false);
         submitLoad(level, printer, job, player, title, () -> ImageProcessor.downloadCanonical(url), ignored -> {});
     }
 
@@ -138,16 +139,20 @@ public final class PrinterJobService {
         ImageSizing.PixelSize size = ImageSizing.textureSize(preset.sourceWidth(), preset.sourceHeight(),
                 preset.blocksWide(), preset.blocksHigh());
         long job = printer.beginJob("gui.printer.status.printing");
-        submit(level, printer, job, () -> ImageProcessor.createVariant(source, size.width(), size.height(), mode, preset.backgroundColor()), (variant, error) -> {
+        ModNetworking.sendPrinterSound(player, true);
+        submit(level, printer, job, () -> ImageProcessor.createPrintVariants(source, size.width(), size.height(), mode, preset.backgroundColor()), (variants, error) -> {
             if (!isCurrent(level, printer, job)) return;
             if (error != null) { fail(printer, player, ImageFailure.classify(error)); return; }
             if (!printer.matchesPrint(preset, mode)) { fail(printer, player, SUPPLIES_CHANGED); return; }
-            if (!ImageStore.putVariant(level.getServer(), variant)) { fail(printer, player, STORAGE_FULL); return; }
+            if (!ImageStore.putVariants(level.getServer(), variants.paper(), variants.transparent())) {
+                fail(printer, player, STORAGE_FULL); return;
+            }
+            var variant = variants.paper();
             ItemStack output = new ItemStack(ModItems.IMAGE.get());
             output.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(variant.contentId(), variant.width(),
                     variant.height(), preset.blocksWide(), preset.blocksHigh(),
                     title != null ? title : preset.title(), mode, preset.backgroundColor(),
-                    preset.originalWidth(), preset.originalHeight()));
+                    preset.originalWidth(), preset.originalHeight(), variants.transparent().contentId(), false));
             printer.consumeSupplies();
             printer.setOutput(output);
             printer.setJobState(false, "gui.printer.status.complete");
@@ -163,8 +168,8 @@ public final class PrinterJobService {
         });
     }
 
-    private static void submit(ServerLevel level, PrinterBlockEntity printer, long job, Callable<ProcessedImage> task,
-                               java.util.function.BiConsumer<ProcessedImage, Throwable> completion) {
+    private static <T> void submit(ServerLevel level, PrinterBlockEntity printer, long job, Callable<T> task,
+                                  java.util.function.BiConsumer<T, Throwable> completion) {
         try {
             CompletableFuture.supplyAsync(() -> {
                 try { return task.call(); }

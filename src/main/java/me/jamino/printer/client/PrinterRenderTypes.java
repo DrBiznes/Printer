@@ -21,7 +21,22 @@ final class PrinterRenderTypes {
                             .setOverlayState(RenderStateShard.OVERLAY)
                             .createCompositeState(true)));
 
+    private static final Function<ResourceLocation, RenderType> TRANSPARENT_IMAGE = Util.memoize(texture ->
+            RenderType.create("printer_transparent_image", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS,
+                    1536, true, true, RenderType.CompositeState.builder()
+                            .setShaderState(RenderStateShard.RENDERTYPE_ENTITY_TRANSLUCENT_SHADER)
+                            .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                            .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                            .setCullState(RenderStateShard.NO_CULL)
+                            .setLightmapState(RenderStateShard.LIGHTMAP)
+                            .setOverlayState(RenderStateShard.OVERLAY)
+                            .createCompositeState(true)));
+
     private PrinterRenderTypes() {}
+
+    static RenderType transparentImage(ResourceLocation texture) {
+        return TRANSPARENT_IMAGE.apply(texture);
+    }
 
     static RenderType smoothImage(ResourceLocation texture) {
         return SMOOTH_IMAGE.apply(texture);

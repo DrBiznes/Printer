@@ -22,6 +22,21 @@ public final class ImageStore {
     public static byte[] getSource(MinecraftServer server, String id) { return get(server, id, true); }
     public static byte[] getVariant(MinecraftServer server, String id) { return get(server, id, false); }
 
+    /** Server-thread batch: reserve space for every distinct variant before adding any of them. */
+    public static boolean putVariants(MinecraftServer server, ProcessedImage... images) {
+        IndexData index = server.overworld().getDataStorage().computeIfAbsent(IndexData.FACTORY, INDEX_NAME);
+        Set<String> added = new HashSet<>();
+        long additionalBytes = 0;
+        for (ProcessedImage image : images) {
+            if (!index.variants.contains(image.contentId()) && added.add(image.contentId()))
+                additionalBytes += image.png().length;
+        }
+        if (additionalBytes > 0 && index.totalBytes + additionalBytes > Config.SERVER.maxStoredMiB.get() * 1024L * 1024L)
+            return false;
+        for (ProcessedImage image : images) putVariant(server, image);
+        return true;
+    }
+
     private static boolean put(MinecraftServer server, ProcessedImage image, boolean source) {
         DimensionDataStorage storage = server.overworld().getDataStorage();
         IndexData index = storage.computeIfAbsent(IndexData.FACTORY, INDEX_NAME);

@@ -34,9 +34,15 @@ final class PrinterButton extends Button {
 
     @Override
     public void onPress() {
+        if (!active) return;
         pressedUntil = Util.getMillis() + 150;
+        PrinterScreenSounds.button(icon == Icon.MINUS ? 0.9F : icon == Icon.PLUS ? 1.1F : 1.0F);
         super.onPress();
     }
+
+    // onPress also handles the URL field's Enter shortcut. Suppress the default
+    // mouse/keyboard click so every activation plays exactly one mechanical key.
+    @Override public void playDownSound(net.minecraft.client.sounds.SoundManager manager) {}
 
     @Override
     protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {

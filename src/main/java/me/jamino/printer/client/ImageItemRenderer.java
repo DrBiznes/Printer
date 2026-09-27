@@ -41,7 +41,8 @@ public final class ImageItemRenderer extends BlockEntityWithoutLevelRenderer {
         PoseStack.Pose pose = poseStack.last();
         VertexConsumer image = buffers.getBuffer(texture.equals(PLACEHOLDER)
                 ? net.minecraft.client.renderer.RenderType.entityCutoutNoCull(texture)
-                : PrinterRenderTypes.smoothImage(texture));
+                : reference != null && reference.transparentBackground()
+                ? PrinterRenderTypes.transparentImage(texture) : PrinterRenderTypes.smoothImage(texture));
         quad(image, pose, x0, y0, x1, y1, 0.001F,
                 packedLight, packedOverlay);
         poseStack.popPose();

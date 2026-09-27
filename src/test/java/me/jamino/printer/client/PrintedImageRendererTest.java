@@ -16,7 +16,7 @@ final class PrintedImageRendererTest {
     @ValueSource(ints = {0xFFFFFF, 0xB02E26, 0x224466, 0x000000})
     void canvasFrontBackAndAllEdgesUseSelectedBackground(int background) {
         var vertices = new RecordingConsumer();
-        PrintedImageRenderer.renderCanvas(new PoseStack().last(), vertices, 2, 1, background,
+        PrintedImageRenderer.renderCanvas(new PoseStack().last(), vertices, 2, 1, background, false,
                 (x, y) -> 0x00F000F0);
 
         assertEquals(40, vertices.colors.size());
@@ -27,6 +27,16 @@ final class PrintedImageRendererTest {
         assertEquals(8, vertices.normals.stream().filter(n -> n.equals("0,1,0")).count());
         assertEquals(4, vertices.normals.stream().filter(n -> n.equals("-1,0,0")).count());
         assertEquals(4, vertices.normals.stream().filter(n -> n.equals("1,0,0")).count());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0xFFFFFF, 0xB02E26, 0x224466, 0x000000})
+    void transparentBackgroundEmitsNoCanvasFrontBackOrEdges(int background) {
+        var vertices = new RecordingConsumer();
+        PrintedImageRenderer.renderCanvas(new PoseStack().last(), vertices, 2, 1, background, true,
+                (x, y) -> 0x00F000F0);
+        assertTrue(vertices.colors.isEmpty());
+        assertTrue(vertices.normals.isEmpty());
     }
 
     private static final class RecordingConsumer implements VertexConsumer {

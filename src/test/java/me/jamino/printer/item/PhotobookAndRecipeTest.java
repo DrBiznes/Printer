@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PhotobookAndRecipeTest {
     @Test void contentsCopySparseSlotsAndRoundTripOverNetwork() {
         var photo = new ItemStack(ModItems.IMAGE.get());
-        var reference = new ImageReference("ab".repeat(32), 80, 40, 2, 1, "Title", PrintMode.COLOR, 0x224466, 160, 80);
+        var reference = new ImageReference("ab".repeat(32), 80, 40, 2, 1, "Title", PrintMode.COLOR, 0x224466, 160, 80, "cd".repeat(32), false);
         photo.set(ModDataComponents.IMAGE_REFERENCE.get(), reference);
         var slots = NonNullList.withSize(PhotobookMenu.CAPACITY, ItemStack.EMPTY);
         slots.set(17, photo);

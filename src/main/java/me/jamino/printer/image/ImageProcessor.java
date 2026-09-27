@@ -58,13 +58,45 @@ public final class ImageProcessor {
     static ProcessedImage createVariant(byte[] sourcePng, int width, int height, boolean monochrome, int backgroundColor) throws IOException {
         if (monochrome && !PrintMode.MONOCHROME.allowsBackground(backgroundColor))
             throw new ImageFailure(ImageFailure.Reason.MONOCHROME_BACKGROUND);
+        BufferedImage artwork = createArtwork(sourcePng, width, height, monochrome);
+        return processed(composite(artwork, backgroundColor));
+    }
+
+    public record PrintVariants(ProcessedImage paper, ProcessedImage transparent) {}
+
+    /** Retain the original alpha before paper compositing; never guess transparency from RGB. */
+    public static PrintVariants createPrintVariants(byte[] sourcePng, int width, int height,
+                                                    PrintMode mode, int backgroundColor) throws IOException {
+        if (!mode.allowsBackground(backgroundColor))
+            throw new ImageFailure(ImageFailure.Reason.MONOCHROME_BACKGROUND);
+        BufferedImage artwork = createArtwork(sourcePng, width, height, mode == PrintMode.MONOCHROME);
+        ProcessedImage paper = processed(composite(artwork, backgroundColor));
+        // RGB and ARGB PNG encodings differ even when all pixels are opaque. Reuse the
+        // paper blob in that case so ordinary photographs do not double storage usage.
+        return new PrintVariants(paper, isOpaque(artwork) ? paper : processed(artwork));
+    }
+
+    private static boolean isOpaque(BufferedImage image) {
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) >>> 24) != 255) return false;
+            }
+        }
+        return true;
+    }
+
+    private static ProcessedImage processed(BufferedImage image) throws IOException {
+        byte[] png = encodePng(image);
+        return new ProcessedImage(hash(png), png, image.getWidth(), image.getHeight());
+    }
+
+    private static BufferedImage createArtwork(byte[] sourcePng, int width, int height, boolean monochrome) throws IOException {
         BufferedImage source = decodeChecked(sourcePng);
         BufferedImage artwork = resize(source, width, height);
         // Ink conversion is independent of paper color. Otherwise colored paper
         // becomes a noisy black/white pattern and changes the artwork's dithering.
         if (monochrome) artwork = monochromeArtwork(artwork);
-        byte[] png = encodePng(composite(artwork, backgroundColor));
-        return new ProcessedImage(hash(png), png, width, height);
+        return artwork;
     }
 
     public static BufferedImage decodeChecked(byte[] data) throws IOException {

@@ -26,6 +26,17 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PrinterTooltipsTest {
+    @Test void transparentImageTooltipReportsTransparencyInsteadOfOldPaperColor() throws Exception {
+        var reference = new ImageReference("a".repeat(64), 32, 16, 2, 1, "Cutout", PrintMode.COLOR,
+                0x224466, 32, 16, "b".repeat(64), false).withoutBackground();
+        var image = new ItemStack(ModItems.IMAGE.get());
+        image.set(ModDataComponents.IMAGE_REFERENCE.get(), reference);
+        var lines = tooltip(image, true);
+        var background = (Component) translated(lines, "item.printer.image.tooltip.behaviour5").getArgs()[0];
+        assertEquals("item.printer.image.background.transparent", ((TranslatableContents) background.getContents()).getKey());
+        assertFalse(has(lines, "item.printer.image.tooltip.behaviour8"));
+    }
+
     private static final String HINT = "tooltip.printer.hold_shift";
 
     @AfterEach
@@ -80,7 +91,7 @@ class PrinterTooltipsTest {
             for (int background : new int[]{0xFFFFFF, 0x000000, DyeColor.RED.getFireworkColor(), DyeColor.BLUE.getFireworkColor(), 0x224466}) {
                 ItemStack image = new ItemStack(ModItems.IMAGE.get());
                 image.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference(
-                        contentId, 320, 160, 4, 2, title, mode, background, 3000, 1500));
+                        contentId, 320, 160, 4, 2, title, mode, background, 3000, 1500, contentId, false));
                 for (boolean expanded : new boolean[]{false, true}) {
                     var tooltip = tooltip(image, expanded);
                     Component displayedTitle = (Component) translated(tooltip, "item.printer.image.title").getArgs()[0];
@@ -110,7 +121,8 @@ class PrinterTooltipsTest {
                         assertEquals("gui.printer.mode." + mode.getSerializedName(),
                                 ((TranslatableContents) modeName.getContents()).getKey());
                         assertHas(tooltip, "item.printer.image.tooltip.behaviour7");
-                        assertTrue(tooltip.size() <= 5);
+                        assertHas(tooltip, "item.printer.image.tooltip.behaviour8");
+                        assertTrue(tooltip.size() <= 6);
                     }
                     assertFalse(tooltip.toString().contains(contentId), "Internal image IDs must not appear in help");
                     assertFalse(tooltip.toString().contains("gui.printer.frame"));

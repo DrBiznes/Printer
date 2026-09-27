@@ -55,11 +55,13 @@ public final class PrintedImageRenderer extends EntityRenderer<PrintedImageEntit
     private static void renderCanvas(PrintedImageEntity entity, PoseStack.Pose pose, MultiBufferSource buffers) {
         VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(CANVAS));
         renderCanvas(pose, consumer, entity.blocksWide(), entity.blocksHigh(),
-                entity.getReference().backgroundColor(), (x, y) -> lightAt(entity, x, y));
+                entity.getReference().backgroundColor(), entity.getReference().transparentBackground(),
+                (x, y) -> lightAt(entity, x, y));
     }
 
     static void renderCanvas(PoseStack.Pose pose, VertexConsumer consumer, int width, int height,
-                             int backgroundColor, IntBinaryOperator lightAt) {
+                             int backgroundColor, boolean transparentBackground, IntBinaryOperator lightAt) {
+        if (transparentBackground) return;
         int color = 0xFF000000 | (backgroundColor & 0xFFFFFF);
         float left = -width / 2.0F;
         float bottom = -height / 2.0F;
@@ -114,7 +116,8 @@ public final class PrintedImageRenderer extends EntityRenderer<PrintedImageEntit
         float imageLeft = -imageWidth / 2.0F;
         float imageBottom = -imageHeight / 2.0F;
         float imageTop = imageHeight / 2.0F;
-        VertexConsumer consumer = buffers.getBuffer(PrinterRenderTypes.smoothImage(texture));
+        VertexConsumer consumer = buffers.getBuffer(reference.transparentBackground()
+                ? PrinterRenderTypes.transparentImage(texture) : PrinterRenderTypes.smoothImage(texture));
 
         for (int y = 0; y < height; y++) {
             float cellBottom = bottom + y;

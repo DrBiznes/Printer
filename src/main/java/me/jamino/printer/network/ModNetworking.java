@@ -20,6 +20,7 @@ import java.util.function.Consumer;
 public final class ModNetworking {
     public static Consumer<ImageChunkPayload> CLIENT_IMAGE_CHUNK_HANDLER = payload -> {};
     public static Consumer<UploadReplyPayload> CLIENT_UPLOAD_REPLY_HANDLER = payload -> {};
+    public static Consumer<PrinterSoundPayload> CLIENT_PRINTER_SOUND_HANDLER = payload -> {};
     private static final ImageRequestBudget IMAGE_REQUESTS = new ImageRequestBudget();
     public static void clearPlayer(java.util.UUID player) { IMAGE_REQUESTS.remove(player); }
     public static void clearRequests() { IMAGE_REQUESTS.clear(); }
@@ -33,7 +34,9 @@ public final class ModNetworking {
     private ModNetworking() {}
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("0.1.0");
+        PayloadRegistrar registrar = event.registrar("0.1.1");
+        registrar.playToClient(PrinterSoundPayload.TYPE, PrinterSoundPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> CLIENT_PRINTER_SOUND_HANDLER.accept(payload)));
         registrar.playToServer(LoadImagePayload.TYPE, LoadImagePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player && player.containerMenu instanceof PrinterMenu menu
@@ -100,6 +103,20 @@ public final class ModNetworking {
 
     public static void sendLoad(BlockPos pos, String url, String title) {
         PacketDistributor.sendToServer(new LoadImagePayload(pos, url, title));
+    }
+
+    /** Acknowledges an accepted GUI action; automation has no listening screen. */
+    public static void sendPrinterSound(ServerPlayer player, boolean printing) {
+        if (player != null && !player.hasDisconnected() && player.containerMenu instanceof PrinterMenu)
+            PacketDistributor.sendToPlayer(player, new PrinterSoundPayload(player.containerMenu.containerId, printing));
+    }
+
+    public record PrinterSoundPayload(int containerId, boolean printing) implements CustomPacketPayload {
+        public static final Type<PrinterSoundPayload> TYPE = new Type<>(Printer.id("printer_sound"));
+        public static final StreamCodec<FriendlyByteBuf, PrinterSoundPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, PrinterSoundPayload::containerId,
+                ByteBufCodecs.BOOL, PrinterSoundPayload::printing, PrinterSoundPayload::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
     public static void sendResize(BlockPos pos, int change) {

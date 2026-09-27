@@ -19,6 +19,14 @@ final class PrinterColorButton extends Button {
 
     int color() { return color; }
 
+    @Override public void onPress() {
+        if (!active || selected.getAsBoolean()) return;
+        PrinterScreenSounds.button(1.2F);
+        super.onPress();
+    }
+
+    @Override public void playDownSound(net.minecraft.client.sounds.SoundManager manager) {}
+
     @Override
     protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int x = getX(), y = getY();

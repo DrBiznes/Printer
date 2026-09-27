@@ -32,6 +32,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     private PrinterButton smaller, larger, load, print, browse;
     private final List<PrinterColorButton> colors = new ArrayList<>();
     private final ClientFileUpload upload = new ClientFileUpload(this);
+    private final PrinterScreenSounds sounds = new PrinterScreenSounds();
     private long monochromeBackgroundResetAt;
 
     public PrinterScreen(PrinterMenu menu, Inventory inventory, Component title) {
@@ -57,7 +58,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
         load.setIcon(PrinterButton.Icon.LOAD);
         load.setTooltip(Tooltip.create(tr("load_help")));
         browse = key(156, 51, 18, 18, tr("browse"), 0xFF4E807B,
-                button -> { if (upload.busy()) upload.cancel(); else upload.select(); });
+                button -> { if (upload.busy()) { sounds.stop(); upload.cancel(); } else upload.select(); });
         browse.setTooltip(Tooltip.create(tr("browse_help")));
         smaller = key(154, 91, 18, 18, tr("decrease"), 0xFF736C59,
                 button -> ModNetworking.sendResize(menu.getPos(), -1));
@@ -135,6 +136,7 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
     @Override
     protected void containerTick() {
         super.containerTick();
+        sounds.tick();
         upload.tick();
         normalizeMonochromeBackground();
         updateControls();
@@ -142,7 +144,11 @@ public final class PrinterScreen extends AbstractContainerScreen<PrinterMenu> {
 
     public void acceptUpload(ModNetworking.UploadReplyPayload payload) { upload.accept(payload); updateControls(); }
 
-    @Override public void removed() { upload.cancel(); super.removed(); }
+    public void acceptSound(ModNetworking.PrinterSoundPayload payload) {
+        if (payload.containerId() == menu.containerId) sounds.start(payload.printing());
+    }
+
+    @Override public void removed() { sounds.stop(); upload.cancel(); super.removed(); }
 
     private void updateControls() {
         PrinterPreset preset = preset();

@@ -41,6 +41,7 @@ public final class ServerUploads {
                 printer.cancelJob(failure.reason().key());
                 throw failure;
             }
+            ModNetworking.sendPrinterSound(player, false);
             reply(player, payload.id(), 0, "gui.printer.status.uploading");
         } catch (ImageFailure failure) {
             reply(player, payload.id(), -1, failure.reason().key());

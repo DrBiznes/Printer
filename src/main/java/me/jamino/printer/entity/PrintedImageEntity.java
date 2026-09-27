@@ -2,11 +2,13 @@ package me.jamino.printer.entity;
 
 import me.jamino.printer.data.ImageReference;
 import me.jamino.printer.data.PrintMode;
+import me.jamino.printer.image.ImageStore;
 import me.jamino.printer.registry.ModDataComponents;
 import me.jamino.printer.registry.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
@@ -14,14 +16,19 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerEntity;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.HangingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -47,6 +54,10 @@ public final class PrintedImageEntity extends HangingEntity {
             PrintedImageEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> BACKGROUND_COLOR = SynchedEntityData.defineId(
             PrintedImageEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<String> TRANSPARENT_CONTENT_ID = SynchedEntityData.defineId(
+            PrintedImageEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Boolean> TRANSPARENT_BACKGROUND = SynchedEntityData.defineId(
+            PrintedImageEntity.class, EntityDataSerializers.BOOLEAN);
 
     public PrintedImageEntity(EntityType<? extends PrintedImageEntity> type, Level level) {
         super(type, level);
@@ -71,6 +82,8 @@ public final class PrintedImageEntity extends HangingEntity {
         builder.define(SOURCE_HEIGHT, 0);
         builder.define(MONOCHROME, false);
         builder.define(BACKGROUND_COLOR, ImageReference.DEFAULT_BACKGROUND_COLOR);
+        builder.define(TRANSPARENT_CONTENT_ID, "");
+        builder.define(TRANSPARENT_BACKGROUND, false);
     }
 
     @Override
@@ -90,6 +103,8 @@ public final class PrintedImageEntity extends HangingEntity {
         entityData.set(BLOCKS_HIGH, reference.blocksHigh());
         entityData.set(MONOCHROME, reference.mode() == PrintMode.MONOCHROME);
         entityData.set(BACKGROUND_COLOR, reference.backgroundColor());
+        entityData.set(TRANSPARENT_CONTENT_ID, reference.transparentContentId());
+        entityData.set(TRANSPARENT_BACKGROUND, reference.transparentBackground());
         recalculateBoundingBox();
     }
 
@@ -98,7 +113,30 @@ public final class PrintedImageEntity extends HangingEntity {
                 entityData.get(PIXEL_HEIGHT), entityData.get(BLOCKS_WIDE), entityData.get(BLOCKS_HIGH),
                 entityData.get(TITLE),
                 entityData.get(MONOCHROME) ? PrintMode.MONOCHROME : PrintMode.COLOR,
-                entityData.get(BACKGROUND_COLOR), entityData.get(SOURCE_WIDTH), entityData.get(SOURCE_HEIGHT));
+                entityData.get(BACKGROUND_COLOR), entityData.get(SOURCE_WIDTH), entityData.get(SOURCE_HEIGHT),
+                entityData.get(TRANSPARENT_CONTENT_ID), entityData.get(TRANSPARENT_BACKGROUND));
+    }
+
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand) {
+        ItemStack held = player.getItemInHand(hand);
+        if (!held.is(Items.PHANTOM_MEMBRANE)) return InteractionResult.PASS;
+        if (isRemoved() || player.isSpectator() || !player.getAbilities().mayBuild
+                || !level().mayInteract(player, getPos())) return InteractionResult.FAIL;
+        ImageReference reference = getReference();
+        // Consume the interaction, but never another membrane for an already transparent image.
+        if (reference.transparentBackground()) return InteractionResult.sidedSuccess(level().isClientSide);
+        if (level() instanceof ServerLevel serverLevel) {
+            if (ImageStore.getVariant(serverLevel.getServer(), reference.transparentContentId()) == null) {
+                player.displayClientMessage(Component.translatable("message.printer.error.missing_data"), true);
+                return InteractionResult.FAIL;
+            }
+            setReference(reference.withoutBackground());
+            held.consume(1, player);
+            playSound(SoundEvents.BOOK_PAGE_TURN, 0.7F, 0.7F);
+            gameEvent(GameEvent.ENTITY_INTERACT, player);
+        }
+        return InteractionResult.sidedSuccess(level().isClientSide);
     }
 
     public int blocksWide() { return getReference().blocksWide(); }
@@ -131,6 +169,8 @@ public final class PrintedImageEntity extends HangingEntity {
         tag.putInt("BlocksHigh", reference.blocksHigh());
         tag.putBoolean("Monochrome", reference.mode() == PrintMode.MONOCHROME);
         tag.putInt("BackgroundColor", reference.backgroundColor());
+        tag.putString("TransparentContentId", reference.transparentContentId());
+        tag.putBoolean("TransparentBackground", reference.transparentBackground());
         tag.putByte("Facing", (byte) direction.get2DDataValue());
         super.addAdditionalSaveData(tag);
     }
@@ -141,7 +181,8 @@ public final class PrintedImageEntity extends HangingEntity {
                 tag.getInt("PixelHeight"), tag.getInt("BlocksWide"), tag.getInt("BlocksHigh"),
                 tag.getString("Title"),
                 tag.getBoolean("Monochrome") ? PrintMode.MONOCHROME : PrintMode.COLOR,
-                tag.getInt("BackgroundColor"), tag.getInt("SourceWidth"), tag.getInt("SourceHeight")));
+                tag.getInt("BackgroundColor"), tag.getInt("SourceWidth"), tag.getInt("SourceHeight"),
+                tag.getString("TransparentContentId"), tag.getBoolean("TransparentBackground")));
         direction = Direction.from2DDataValue(tag.getByte("Facing"));
         super.readAdditionalSaveData(tag);
         setDirection(direction);

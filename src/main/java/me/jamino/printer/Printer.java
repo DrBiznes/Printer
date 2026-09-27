@@ -12,6 +12,7 @@ import me.jamino.printer.registry.ModEntities;
 import me.jamino.printer.registry.ModItems;
 import me.jamino.printer.registry.ModMenus;
 import me.jamino.printer.registry.ModCriteria;
+import me.jamino.printer.registry.ModSounds;
 import me.jamino.printer.network.ModNetworking;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
@@ -39,6 +40,7 @@ public final class Printer {
         ModDataComponents.register(modBus);
         ModEntities.register(modBus);
         ModCriteria.register(modBus);
+        ModSounds.register(modBus);
 
         modBus.addListener(this::registerCapabilities);
         modBus.addListener(ModNetworking::register);

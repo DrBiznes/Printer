@@ -18,6 +18,37 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class ImageProcessorTest {
+    @Test void removableBackgroundPreservesAlphaAndDoesNotEraseMatchingArtwork() throws Exception {
+        var input = new BufferedImage(4, 1, BufferedImage.TYPE_INT_ARGB);
+        input.setRGB(1, 0, 0x80FF0000);
+        input.setRGB(2, 0, 0xFF224466); // Same RGB as the chosen paper, but genuinely opaque ink.
+        input.setRGB(3, 0, 0xFFFFFFFF);
+        var bytes = new ByteArrayOutputStream();
+        ImageIO.write(input, "png", bytes);
+        for (var mode : me.jamino.printer.data.PrintMode.values()) {
+            int background = mode == me.jamino.printer.data.PrintMode.COLOR ? 0x224466 : 0x000000;
+            var variants = ImageProcessor.createPrintVariants(bytes.toByteArray(), 4, 1, mode, background);
+            var paper = ImageProcessor.decodeChecked(variants.paper().png());
+            var artwork = ImageProcessor.decodeChecked(variants.transparent().png());
+            assertEquals(0xFF000000 | background, paper.getRGB(0, 0));
+            assertEquals(0, artwork.getRGB(0, 0) >>> 24);
+            assertEquals(128, artwork.getRGB(1, 0) >>> 24);
+            assertEquals(255, artwork.getRGB(2, 0) >>> 24);
+            assertEquals(0xFFFFFFFF, artwork.getRGB(3, 0));
+            if (mode == me.jamino.printer.data.PrintMode.COLOR) assertEquals(0xFF224466, artwork.getRGB(2, 0));
+            else assertTrue((artwork.getRGB(1, 0) & 0xFFFFFF) == 0 || (artwork.getRGB(1, 0) & 0xFFFFFF) == 0xFFFFFF);
+            var otherPaper = ImageProcessor.createPrintVariants(bytes.toByteArray(), 4, 1, mode, 0xFFFFFF);
+            assertEquals(variants.transparent().contentId(), otherPaper.transparent().contentId());
+            assertFalse(variants.paper().contentId().equals(variants.transparent().contentId()));
+        }
+    }
+
+    @Test void opaquePrintDoesNotInventHolesAndDeduplicatesBothCopies() throws Exception {
+        var variants = ImageProcessor.createPrintVariants(sourcePng(), 4, 3,
+                me.jamino.printer.data.PrintMode.COLOR, 0x224466);
+        assertEquals(variants.paper().contentId(), variants.transparent().contentId());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"lossless.webp", "lossy.webp", "alpha.webp", "animated.webp", "sample.ico", "sample.tga"})
     void decodesExtendedFormatsAndCanonicalizesToPng(String fixture) throws Exception {

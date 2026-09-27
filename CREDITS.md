@@ -7,6 +7,6 @@
 - [TwelveMonkeys ImageIO](https://github.com/haraldk/TwelveMonkeys) supplies pure-Java WebP, JPEG, BMP/ICO, TIFF, and TGA decoders (BSD 3-Clause). The original license notices remain in each bundled library JAR.
 - Minecraft and NeoForge are trademarks of their respective owners. This project is not affiliated with Mojang Studios or NeoForged.
 
-Printer source code and pixel-art assets are original work. The bundled third-party libraries retain their own licenses.
+Printer source code and pixel-art assets are original work. The radio GUI in Analog-Audio-0.1.5-hotfix.1.jar also informed the distinction between button clicks and pitch-adjusted control ticks. Printer's sound effects sequence and pitch Minecraft's existing sound events at runtime; no audio files are bundled and no Analog Audio sound files were copied. The bundled third-party libraries retain their own licenses.
 
-The 0.1.0 JAR includes this file and Printer's MIT license under `META-INF`. The legal copyright notice is retained independently of the mod's displayed author name.
+The JAR includes this file and Printer's MIT license under `META-INF`. The legal copyright notice is retained independently of the mod's displayed author name.

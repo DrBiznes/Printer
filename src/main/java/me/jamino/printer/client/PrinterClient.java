@@ -20,6 +20,9 @@ public final class PrinterClient {
         ModNetworking.CLIENT_UPLOAD_REPLY_HANDLER = payload -> {
             if (net.minecraft.client.Minecraft.getInstance().screen instanceof PrinterScreen screen) screen.acceptUpload(payload);
         };
+        ModNetworking.CLIENT_PRINTER_SOUND_HANDLER = payload -> {
+            if (net.minecraft.client.Minecraft.getInstance().screen instanceof PrinterScreen screen) screen.acceptSound(payload);
+        };
         event.register(ModMenus.PRINTER.get(), PrinterScreen::new);
         event.register(ModMenus.PHOTOBOOK.get(), PhotobookScreen::new);
     }

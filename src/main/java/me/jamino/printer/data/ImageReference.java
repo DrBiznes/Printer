@@ -7,7 +7,8 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 
 public record ImageReference(String contentId, int pixelWidth, int pixelHeight, int blocksWide, int blocksHigh,
-                             String title, PrintMode mode, int backgroundColor, int sourceWidth, int sourceHeight) {
+                             String title, PrintMode mode, int backgroundColor, int sourceWidth, int sourceHeight,
+                             String transparentContentId, boolean transparentBackground) {
     public static final int DEFAULT_BACKGROUND_COLOR = 0xFFFFFF;
     public static final Codec<ImageReference> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("content_id").forGetter(ImageReference::contentId),
@@ -19,7 +20,9 @@ public record ImageReference(String contentId, int pixelWidth, int pixelHeight, 
             PrintMode.CODEC.fieldOf("mode").forGetter(ImageReference::mode),
             Codec.intRange(0, 0xFFFFFF).fieldOf("background_color").forGetter(ImageReference::backgroundColor),
             Codec.INT.fieldOf("source_width").forGetter(ImageReference::sourceWidth),
-            Codec.INT.fieldOf("source_height").forGetter(ImageReference::sourceHeight)
+            Codec.INT.fieldOf("source_height").forGetter(ImageReference::sourceHeight),
+            Codec.STRING.fieldOf("transparent_content_id").forGetter(ImageReference::transparentContentId),
+            Codec.BOOL.fieldOf("transparent_background").forGetter(ImageReference::transparentBackground)
     ).apply(instance, ImageReference::new));
     public static final StreamCodec<FriendlyByteBuf, ImageReference> STREAM_CODEC = StreamCodec.of(
             (buffer, reference) -> {
@@ -33,11 +36,20 @@ public record ImageReference(String contentId, int pixelWidth, int pixelHeight, 
                 buffer.writeVarInt(reference.backgroundColor());
                 buffer.writeVarInt(reference.sourceWidth());
                 buffer.writeVarInt(reference.sourceHeight());
+                buffer.writeUtf(reference.transparentContentId(), 64);
+                buffer.writeBoolean(reference.transparentBackground());
             }, buffer -> new ImageReference(
                     ByteBufCodecs.STRING_UTF8.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer),
                     ByteBufCodecs.VAR_INT.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer),
                     ByteBufCodecs.VAR_INT.decode(buffer), ByteBufCodecs.STRING_UTF8.decode(buffer),
-                    PrintMode.STREAM_CODEC.decode(buffer), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt()));
+                    PrintMode.STREAM_CODEC.decode(buffer), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(),
+                    buffer.readUtf(64), buffer.readBoolean()));
+
+    public ImageReference withoutBackground() {
+        if (transparentBackground) return this;
+        return new ImageReference(transparentContentId, pixelWidth, pixelHeight, blocksWide, blocksHigh,
+                title, mode, backgroundColor, sourceWidth, sourceHeight, transparentContentId, true);
+    }
 
     public ImageReference {
         sourceWidth = Math.clamp(sourceWidth, 1, 4096);

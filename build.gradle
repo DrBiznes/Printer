@@ -106,7 +106,7 @@ if (providers.gradleProperty('printerGameTests').isPresent()) {
     sourceSets.main.resources.srcDir 'src/gametest/resources'
     sourceSets.main.resources.srcDir 'src/test/resources'
 }
-neoForge.runs.gameTestServer.gameDirectory = project.file('build/gametest-0.1.0-run')
+neoForge.runs.gameTestServer.gameDirectory = project.file('build/gametest-0.1.1-run')
 // Never use existing development saves for release UI verification.
 if (providers.gradleProperty('printerSmokeClient').isPresent()) {
     neoForge.runs.client.gameDirectory = project.file('build/smoke-client')

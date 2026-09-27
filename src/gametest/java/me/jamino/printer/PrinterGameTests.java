@@ -38,7 +38,8 @@ public final class PrinterGameTests {
     private static ServerPlayer player(GameTestHelper helper, PrinterBlockEntity printer) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         net.neoforged.neoforge.network.registration.NetworkRegistry.onMinecraftRegister(player.connection.getConnection(),
-                java.util.Set.of(ModNetworking.UploadReplyPayload.TYPE.id(), ModNetworking.ImageChunkPayload.TYPE.id()));
+                java.util.Set.of(ModNetworking.UploadReplyPayload.TYPE.id(), ModNetworking.ImageChunkPayload.TYPE.id(),
+                        ModNetworking.PrinterSoundPayload.TYPE.id()));
         var pos = printer.getBlockPos();
         player.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 1.5);
         player.containerMenu = new PrinterMenu(42, player.getInventory(), pos);
@@ -75,7 +76,7 @@ public final class PrinterGameTests {
         for (int i = 0; i < 19; i++) {
             ItemStack photo = new ItemStack(ModItems.IMAGE.get());
             photo.set(ModDataComponents.IMAGE_REFERENCE.get(), new ImageReference("ab".repeat(32),
-                    32, 16, 2, 1, "Photo " + i, PrintMode.COLOR, 0x224466, 32, 16));
+                    32, 16, 2, 1, "Photo " + i, PrintMode.COLOR, 0x224466, 32, 16, "cd".repeat(32), false));
             inventory.setItem(9, photo);
             menu.clicked(18, 0, net.minecraft.world.inventory.ClickType.QUICK_MOVE, player);
             helper.assertTrue(inventory.getItem(9).isEmpty() == (i < 18), "Exactly 18 prints fit");
@@ -245,7 +246,92 @@ public final class PrinterGameTests {
                     var frame = new net.minecraft.world.entity.decoration.ItemFrame(helper.getLevel(), wall.south(), Direction.SOUTH);
                     frame.setItem(printer.getItem(2).copy());
                     helper.assertValueEqual(frame.getItem().get(ModDataComponents.IMAGE_REFERENCE.get()), reference, "Item-frame metadata");
+                    helper.assertTrue(!reference.transparentContentId().isEmpty(), "Print keeps separate artwork");
+                    player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+                    player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.PHANTOM_MEMBRANE, 2));
+                    helper.assertTrue(display.interact(player, InteractionHand.MAIN_HAND).consumesAction(), "Membrane applies");
+                    helper.assertValueEqual(player.getMainHandItem().getCount(), 1, "One membrane consumed");
+                    var transparent = reference.withoutBackground();
+                    helper.assertValueEqual(display.getReference(), transparent, "Colored background becomes transparent");
+                    try {
+                        var artwork = ImageProcessor.decodeChecked(ImageStore.getVariant(helper.getLevel().getServer(),
+                                display.getReference().contentId()));
+                        helper.assertValueEqual(artwork.getRGB(0, 0) >>> 24, 0, "Original transparency restored");
+                    } catch (Exception error) { throw new RuntimeException(error); }
+                    display.interact(player, InteractionHand.MAIN_HAND);
+                    helper.assertValueEqual(player.getMainHandItem().getCount(), 1, "Repeated use costs nothing");
+                    CompoundTag transparentSave = new CompoundTag(); display.saveWithoutId(transparentSave);
+                    restored.load(transparentSave);
+                    helper.assertValueEqual(restored.getReference(), transparent, "Transparency survives entity save/load");
+                    var picked = display.getPickResult();
+                    var savedItem = ItemStack.parseOptional(helper.getLevel().registryAccess(), (CompoundTag) picked.save(helper.getLevel().registryAccess()));
+                    helper.assertValueEqual(savedItem.get(ModDataComponents.IMAGE_REFERENCE.get()), transparent, "Transparency survives item save/load");
+                    display.dropItem(null);
+                    helper.assertTrue(helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                                    display.getBoundingBox().inflate(2)).stream()
+                            .anyMatch(drop -> transparent.equals(drop.getItem().get(ModDataComponents.IMAGE_REFERENCE.get()))),
+                            "Dropped image keeps transparency");
+                    display.discard();
+                    player.setItemInHand(InteractionHand.MAIN_HAND, savedItem);
+                    ModItems.IMAGE.get().useOn(new UseOnContext(player, InteractionHand.MAIN_HAND,
+                            new BlockHitResult(Vec3.atCenterOf(wall), Direction.SOUTH, wall, false)));
+                    helper.assertTrue(helper.getLevel().getEntitiesOfClass(PrintedImageEntity.class, new AABB(wall).inflate(2))
+                            .stream().anyMatch(image -> transparent.equals(image.getReference())), "Replaced image stays transparent");
                 }).thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void membraneHandlesCreativeOffhandPermissionsAndMissingArtwork(GameTestHelper helper) throws Exception {
+        var player = player(helper, machine(helper));
+        var variants = ImageProcessor.createPrintVariants(png(), 32, 16, PrintMode.MONOCHROME, 0x000000);
+        helper.assertTrue(ImageStore.putVariants(helper.getLevel().getServer(), variants.paper(), variants.transparent()), "Store both variants");
+        var reference = new ImageReference(variants.paper().contentId(), 32, 16, 1, 1, "Cutout", PrintMode.MONOCHROME,
+                0x000000, 32, 16, variants.transparent().contentId(), false);
+        var image = new PrintedImageEntity(ModEntities.PRINTED_IMAGE.get(), helper.getLevel(),
+                helper.absolutePos(new BlockPos(2, 2, 2)), Direction.SOUTH, reference);
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.PHANTOM_MEMBRANE, 3));
+        image.interact(player, InteractionHand.OFF_HAND);
+        helper.assertTrue(image.getReference().transparentBackground(), "Creative offhand membrane applies");
+        helper.assertValueEqual(player.getOffhandItem().getCount(), 3, "Creative does not consume membranes");
+
+        image.setReference(reference);
+        player.setGameMode(net.minecraft.world.level.GameType.ADVENTURE);
+        image.interact(player, InteractionHand.OFF_HAND);
+        helper.assertValueEqual(image.getReference(), reference, "Adventure cannot alter the image");
+        player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
+        image.interact(player, InteractionHand.OFF_HAND);
+        helper.assertValueEqual(image.getReference(), reference, "Spectator cannot alter the image");
+        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.PAPER));
+        helper.assertValueEqual(image.interact(player, InteractionHand.MAIN_HAND), net.minecraft.world.InteractionResult.PASS,
+                "Unrelated items retain their normal interaction");
+        image.interact(player, InteractionHand.OFF_HAND);
+        helper.assertTrue(image.getReference().transparentBackground(), "Survival offhand works for black ink");
+        helper.assertValueEqual(player.getOffhandItem().getCount(), 2, "Only one membrane consumed");
+
+        var missing = new ImageReference(reference.contentId(), 32, 16, 1, 1, "Missing", PrintMode.COLOR,
+                0x224466, 32, 16, "cd".repeat(32), false);
+        image.setReference(missing);
+        image.interact(player, InteractionHand.OFF_HAND);
+        helper.assertValueEqual(image.getReference(), missing, "Missing artwork does not change the image");
+        helper.assertValueEqual(player.getOffhandItem().getCount(), 2, "Missing artwork does not waste membranes");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void printVariantBatchDoesNotStoreHalfWhenQuotaIsFull(GameTestHelper helper) {
+        int originalLimit = Config.SERVER.maxStoredMiB.get();
+        var first = new ProcessedImage("ef".repeat(32), new byte[16], 1, 1);
+        var second = new ProcessedImage("fe".repeat(32), new byte[16 * 1024 * 1024 + 1], 1, 1);
+        // All work here is synchronous on the server thread; restore before other tests tick.
+        try {
+            Config.SERVER.maxStoredMiB.set(16);
+            helper.assertFalse(ImageStore.putVariants(helper.getLevel().getServer(), first, second), "Reject combined quota overflow");
+            helper.assertTrue(ImageStore.getVariant(helper.getLevel().getServer(), first.contentId()) == null, "No partial paper blob");
+            helper.assertTrue(ImageStore.getVariant(helper.getLevel().getServer(), second.contentId()) == null, "No partial artwork blob");
+        } finally { Config.SERVER.maxStoredMiB.set(originalLimit); }
+        helper.succeed();
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)

@@ -113,13 +113,16 @@ public final class PhotobookScreen extends AbstractContainerScreen<PhotobookMenu
         int width = Math.max(1, Math.round(reference.pixelWidth() * scale));
         int height = Math.max(1, Math.round(reference.pixelHeight() * scale));
         int px = x + (96 - width) / 2, py = y + (49 - height) / 2;
-        graphics.fill(px - 1, py - 1, px + width + 1, py + height + 1, 0xFF9C9C80);
-        graphics.fill(px, py, px + width, py + height, 0xFF000000 | reference.backgroundColor());
+        graphics.renderOutline(px - 1, py - 1, width + 2, height + 2, 0xFF9C9C80);
+        if (!reference.transparentBackground())
+            graphics.fill(px, py, px + width, py + height, 0xFF000000 | reference.backgroundColor());
         if (texture != null) {
+            graphics.flush();
             RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             try {
                 graphics.blit(texture, px, py, 0, 0, width, height, width, height);
-            } finally { RenderSystem.disableBlend(); }
+            } finally { graphics.flush(); RenderSystem.disableBlend(); }
         } else graphics.drawCenteredString(font, tr("loading"), x + 48, y + 20, 0xFF596052);
         Component caption = reference.title().isBlank() ? Component.translatable("item.printer.image.untitled")
                 : Component.literal(reference.title());

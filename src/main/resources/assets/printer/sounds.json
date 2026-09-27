@@ -1,0 +1,26 @@
+{
+  "ui.button": {
+    "subtitle": "subtitles.printer.button",
+    "sounds": [{ "name": "minecraft:block.stone_button.click_on", "type": "event", "pitch": 1.4 }]
+  },
+  "ui.preview_load": {
+    "subtitle": "subtitles.printer.preview_load",
+    "sounds": [{ "name": "minecraft:block.piston.contract", "type": "event" }]
+  },
+  "ui.print": {
+    "subtitle": "subtitles.printer.print",
+    "sounds": [{ "name": "minecraft:block.piston.extend", "type": "event" }]
+  },
+  "ui.print_return": {
+    "subtitle": "subtitles.printer.print",
+    "sounds": [{ "name": "minecraft:block.piston.contract", "type": "event" }]
+  },
+  "ui.paper_feed": {
+    "subtitle": "subtitles.printer.print",
+    "sounds": [{ "name": "minecraft:ui.loom.take_result", "type": "event" }]
+  },
+  "ui.paper_eject": {
+    "subtitle": "subtitles.printer.print",
+    "sounds": [{ "name": "minecraft:item.book.page_turn", "type": "event" }]
+  }
+}

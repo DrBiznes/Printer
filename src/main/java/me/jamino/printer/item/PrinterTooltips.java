@@ -72,9 +72,12 @@ public final class PrinterTooltips {
         tooltip.add(Component.translatable("item.printer.image.title", title).withStyle(ChatFormatting.GOLD));
         behaviour(tooltip, "image", 4, reference.blocksWide(), reference.blocksHigh());
         if (expanded) {
-            behaviour(tooltip, "image", 5, backgroundName(reference.backgroundColor()));
+            behaviour(tooltip, "image", 5, reference.transparentBackground()
+                    ? Component.translatable("item.printer.image.background.transparent")
+                    : backgroundName(reference.backgroundColor()));
             behaviour(tooltip, "image", 6, Component.translatable("gui.printer.mode." + reference.mode().getSerializedName()));
             behaviour(tooltip, "image", 7);
+            if (!reference.transparentBackground()) behaviour(tooltip, "image", 8);
         } else {
             appendHint(tooltip);
         }

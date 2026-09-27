@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 — in development
+
+- Right-click a placed Image with a Phantom Membrane to remove its selected background and canvas backing. Uses one membrane in survival, none in creative; repeated use costs nothing. Transparency persists through saves, drops, re-placement, inventory previews, and Photobooks.
+- Preserve separate artwork with its original alpha for new color and B&W prints. Removing the background preserves opaque artwork, even when it matches the paper color. Version 0.1.1 requires a new world; earlier saves and printed Images are unsupported. No migration or legacy-image fallback is included.
+- Add Printer GUI sounds: pitched Minecraft button/palette clicks, a short scanner cue for accepted URL/local preview loads, and sequenced piston, loom, and paper sounds for accepted prints. No custom audio files are bundled. Size controls use lower/higher click pitches.
+- Play job cues only for the initiating GUI after server validation; prevent duplicate mouse/keyboard clicks, replace overlapping operation cues, and stop playback on close. Automation remains silent. Include subtitles and cancel every pending sound layer on close or interruption.
+- Update the network protocol to `0.1.1` for GUI sound acknowledgements and transparency metadata; use matching client/server mod versions.
+
 ## 0.1.0 — release candidate
 
 - Add Black Ink Cartridges (iron nugget + ink sac), consumed once per B&W print. Reject raw ink sacs as printer supplies. Replace only the Color Cartridge recipe's black dye with an ink sac; keep three color charges.
